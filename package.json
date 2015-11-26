@@ -1,0 +1,27 @@
+{
+  "name": "xpl-hue",
+  "version": "0.0.1",
+  "description": "XPL bridge for Philips Hue lights",
+  "bin": {
+  	"xpl-hue": "./bin/xpl-hue"
+  },
+  "dependencies": {
+	  "xpl-api": "latest",
+	  "async": "latest",
+	  "commander": "~2.3",
+	  "node-hue-api": "latest",
+	  "debug": "latest"
+  },
+  "keywords": [
+    "XPL",
+    "hue", "philips"
+  ],
+  "files": [
+    "xpl-hue.js",
+    "bin/xpl-hue"
+	],
+  "repository": { "type": "git", "url": "https://github.com/Nodejs-XPL/xpl-hue.git" },
+  "author": "Olivier Oeuillot",
+  "license": "GPL",
+  "readmeFilename": "README.md"
+}
