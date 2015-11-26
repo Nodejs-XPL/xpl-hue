@@ -178,6 +178,10 @@ commander.command('run').description("Start processing Hue").action(
     });
 commander.parse(process.argv);
 
+process.on('uncaughtException', function(err) {
+  console.error('Caught exception: ', err);
+});
+
 var errorCount = 0;
 
 function sendFullState(xpl, hue) {
