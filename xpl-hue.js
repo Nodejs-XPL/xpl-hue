@@ -20,9 +20,21 @@ commander.option("--heapDump", "Enable heap dump (require heapdump)");
 
 Xpl.fillCommander(commander);
 
-commander.command('newUser').description("Create a user").action(function() {
+commander.command('registerUser <username>').description("Create a user")
+    .action(
+        function(username) {
 
-});
+          var hue = new Hue(commander);
+          hue.registerUser(username || commander.username, function(error,
+              username) {
+            if (error) {
+              console.error(error);
+              return;
+            }
+
+            console.log("User '" + username + "' created !");
+          });
+        });
 
 commander.command('run').description("Start processing Hue").action(
     function() {
