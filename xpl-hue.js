@@ -204,7 +204,7 @@ process.on('uncaughtException', function(err) {
 var errorCount = 0;
 
 function sendFullState(xpl, hue) {
-  hue.listAccessories(function(error, list) {
+  hue.listAccessories(function(error, list, states) {
     if (error) {
       console.error(error);
 
@@ -220,7 +220,9 @@ function sendFullState(xpl, hue) {
     }
     errorCount = 0;
 
-    debug(list);
+    list.forEach(function(device) {
+      debug("device", device.id, "=>", list[device.id]);
+    });
 
     setTimeout(sendFullState.bind(this, xpl, hue), 1000);
   });
