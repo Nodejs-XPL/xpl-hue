@@ -44,7 +44,14 @@ commander.command('run').description("Start processing Hue").action(
 
       hue.listAccessories(function(error, list) {
         if (error) {
+          if (error.message === 'unauthorized user') {
+            console.error("The user '" + commander.username +
+                "' is not authorized");
+            process.exit(4);
+            return;
+          }
           console.error("Hue error", error);
+          process.exit(5);
           return;
         }
 
