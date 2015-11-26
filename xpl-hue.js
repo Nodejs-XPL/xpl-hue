@@ -221,7 +221,7 @@ function sendFullState(xpl, hue) {
     errorCount = 0;
 
     list.forEach(function(device) {
-      debug("device", device.id, "=>", list[device.id]);
+      debug("device", device, "=>", list[device.id]);
     });
 
     setTimeout(sendFullState.bind(this, xpl, hue), 1000);
