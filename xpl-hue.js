@@ -282,6 +282,18 @@ function sendFullState(xpl, hue, deviceAliases) {
         }
       }
 
+      if (typeof (state.reachable) === "boolean") {
+        if (lightState.reachable !== state.reachable) {
+          lightState.reachable = state.reachable;
+
+          modifs.push({
+            device : key,
+            type : "reachable",
+            current : (state.on) ? "enable" : "disable"
+          });
+        }
+      }
+
       if (typeof (state.bri) === "number") {
         if (lightState.bri !== state.bri) {
           lightState.bri = state.bri;
@@ -321,6 +333,8 @@ function sendFullState(xpl, hue, deviceAliases) {
       }
 
       async.eachSeries(modifs, function(body, callback) {
+        debug("Send modifs", modifs);
+
         xpl.sendXplStat(body, "sensor.basic", callback);
       }, callback);
     }, function(error) {
