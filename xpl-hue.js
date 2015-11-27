@@ -296,9 +296,18 @@ function processXplMessage(hue, deviceAliases, message) {
   } else {
     device.split(',').forEach(function(tok) {
       tok = tok.trim();
+      debug("Process tok=", tok);
 
-      if (deviceAliases[tok]) {
-        tok = deviceAliases[tok];
+      if (deviceAliases) {
+        for ( var k in deviceAliases) {
+          if (deviceAliases[k] !== tok) {
+            continue;
+          }
+
+          tok = k
+          debug(" alias tok=", tok);
+          break;
+        }
       }
 
       for ( var l in lightsStates) {
@@ -379,7 +388,7 @@ function processXplMessage(hue, deviceAliases, message) {
     return;
   }
 
-  async.forEach(function changeLightState(id, callback) {
+  async.forEach(targetKeys, function changeLightState(id, callback) {
     debug("Set light", id, "state=", lightState);
     hue.setLightState(id, lightState, function(error) {
 
@@ -393,7 +402,9 @@ function processXplMessage(hue, deviceAliases, message) {
       callback(error);
     });
   }, function(error) {
-    console.error(error);
+    if (error) {
+      console.error(error);
+    }
   });
 
 }
