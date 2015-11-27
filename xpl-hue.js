@@ -299,11 +299,11 @@ function processXplMessage(hue, deviceAliases, message) {
       debug("Process tok=", tok);
 
       for ( var l in lightsStates) {
-        if (l.uniqueid !== tok) {
+        if (l !== tok) {
           continue;
         }
 
-        targetKeys[l.id] = true;
+        targetKeys[lightsStates[l].id] = true;
         break;
       }
     });
