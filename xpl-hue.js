@@ -95,133 +95,21 @@ commander
                   console.log("XPL error", error);
                 });
 
-                xpl
-                    .bind(function(error) {
-                      if (error) {
-                        console.log("Can not open xpl bridge ", error);
-                        process.exit(2);
-                        return;
-                      }
+                xpl.bind(function(error) {
+                  if (error) {
+                    console.log("Can not open xpl bridge ", error);
+                    process.exit(2);
+                    return;
+                  }
 
-                      console.log("Xpl bind succeed ");
-                      // xpl.sendXplTrig(body, callback);
+                  console.log("Xpl bind succeed ");
+                  // xpl.sendXplTrig(body, callback);
 
-                      sendFullState(xpl, hue, deviceAliases);
+                  sendFullState(xpl, hue, deviceAliases);
 
-                      xpl
-                          .on(
-                              "xpl:xpl-cmnd",
-                              function(message) {
-
-                                debug("Receive message", message);
-
-                                if (message.bodyName !== "delabarre.command" &&
-                                    message.bodyName !== "x10.basic") {
-                                  return;
-                                }
-
-                                var body = message.body;
-
-                                var command = body.command;
-                                var device = body.device;
-                                var current;
-
-                                switch (command) {
-                                // Xpl-delabarre
-                                case 'status':
-                                  if (/(enable|enabled|on|1|true)/i
-                                      .exec(body.current)) {
-                                    command = "on";
-
-                                  } else if (/(disable|disabled|off|0|false)/i
-                                      .exec(body.current)) {
-                                    command = "off";
-                                  }
-                                  break;
-
-                                // X10
-                                case 'all_units_off':
-                                case 'all_lights_off':
-                                  command = "off";
-                                  device = "all";
-                                  break;
-
-                                case 'all_units_on':
-                                case 'all_lights_on':
-                                  command = "on";
-                                  device = "all";
-                                  break;
-
-                                case 'bright':
-                                  command = "brightness";
-                                  if (command.data1) {
-                                    current = parseInt(command.data1, 10) / 255 * 100;
-                                  }
-                                  break;
-                                }
-
-                                debug("Process command", command, "zones=",
-                                    zones);
-
-                                switch (command) {
-                                case "off":
-                                  debug("Request OFF zones=", targetKeys);
-                                  return;
-
-                                case "nightMode":
-                                  debug("Request nightMode zones=", zones);
-                                  return;
-
-                                case "on":
-                                  debug("Request ON zones=", targetKeys);
-                                  return;
-
-                                case "brightness":
-                                  var brightness = undefined;
-                                  if (typeof (current) === "string") {
-                                    brightness = parseInt(current, 10);
-                                  }
-                                  debug("Request brightness: ", brightness,
-                                      "zones=", zones);
-                                  zones.brightness(brightness);
-                                  return;
-
-                                case "white":
-                                  var white = undefined;
-                                  if (typeof (current) === "string") {
-                                    white = parseInt(current, 10);
-                                  }
-                                  debug("Request white: ", white, "zones=",
-                                      zones);
-                                  return;
-
-                                case "hsv":
-                                  var hue = undefined;
-                                  if (typeof (body.hue) === "string") {
-                                    hue = parseInt(body.hue, 10);
-                                  }
-                                  var value = undefined;
-                                  if (typeof (body.value) === "string") {
-                                    value = parseInt(body.value, 10);
-                                  }
-                                  debug("Request hsv: hue=", hue, "value=",
-                                      value, "zones=", zones);
-                                  return;
-
-                                case "rgb":
-                                  var red = parseInt(body.red, 10);
-                                  var green = parseInt(body.green, 10);
-                                  var blue = parseInt(body.blue, 10);
-
-                                  debug("Request rgb255: red=", red, "green=",
-                                      green, "blue=", blue, "zones=", zones);
-                                  return;
-                                }
-
-                                console.error("Unsupported command '" +
-                                    command + "'");
-                              });
-                    });
+                  xpl.on("xpl:xpl-cmnd", processXplMessage.bind(xpl, hue,
+                      deviceAliases));
+                });
               });
         });
 commander.parse(process.argv);
@@ -267,7 +155,9 @@ function sendFullState(xpl, hue, deviceAliases) {
       var state = device.state;
       var lightState = lightsStates[key];
       if (!lightState) {
-        lightState = {};
+        lightState = {
+          id : device.id
+        };
         lightsStates[key] = lightState;
       }
 
@@ -292,7 +182,7 @@ function sendFullState(xpl, hue, deviceAliases) {
           modifs.push({
             device : key,
             type : "reachable",
-            current : (state.on) ? "enable" : "disable"
+            current : (state.reachable) ? "enable" : "disable"
           });
         }
       }
@@ -348,6 +238,163 @@ function sendFullState(xpl, hue, deviceAliases) {
       setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases), 1000);
     });
   });
+}
+
+function processXplMessage(hue, deviceAliases, message) {
+
+  debug("Receive message", message);
+
+  if (message.bodyName !== "delabarre.command" &&
+      message.bodyName !== "x10.basic") {
+    return;
+  }
+
+  var body = message.body;
+
+  var command = body.command;
+  var device = body.device;
+  var current;
+
+  switch (command) {
+  // Xpl-delabarre
+  case 'status':
+    if (/(enable|enabled|on|1|true)/i.exec(body.current)) {
+      command = "on";
+
+    } else if (/(disable|disabled|off|0|false)/i.exec(body.current)) {
+      command = "off";
+    }
+    break;
+
+  // X10
+  case 'all_units_off':
+  case 'all_lights_off':
+    command = "off";
+    device = "all";
+    break;
+
+  case 'all_units_on':
+  case 'all_lights_on':
+    command = "on";
+    device = "all";
+    break;
+
+  case 'bright':
+    command = "brightness";
+    if (command.data1) {
+      current = parseInt(command.data1, 10) / 255 * 100;
+    }
+    break;
+  }
+
+  var targetKeys = {};
+  if (device === "all") {
+    for ( var l in lightsStates) {
+      targetKeys[l.id] = true;
+    }
+  } else {
+    device.split(',').forEach(function(tok) {
+      tok = tok.trim();
+
+      if (deviceAliases[tok]) {
+        tok = deviceAliases[tok];
+      }
+
+      for ( var l in lightsStates) {
+        if (l.uniqueid !== tok) {
+          continue;
+        }
+
+        targetKeys[l.id] = true;
+        break;
+      }
+    });
+  }
+
+  debug("Process command", command, "zones=", targetKeys);
+
+  var lightState = Hue.lightState.create();
+
+  switch (command) {
+  case "off":
+    debug("Request OFF lights=", targetKeys);
+    lightState.off();
+    break;
+
+  case "on":
+    debug("Request ON lights=", targetKeys);
+    lightState.on();
+    break;
+
+  case "brightness":
+    var brightness = undefined;
+    if (typeof (current) === "string") {
+      brightness = parseInt(current, 10);
+    }
+    debug("Request brightness: ", brightness, "zones=", targetKeys);
+    lightState.bri(brightness);
+    break;
+
+  case "white":
+    var white = undefined;
+    if (typeof (current) === "string") {
+      white = parseInt(current, 10);
+    }
+    debug("Request white: ", white, "lights=", targetKeys);
+    lightState.white(500, white);
+    break;
+
+  case "hsb":
+    var hue = undefined;
+    if (typeof (body.hue) === "string") {
+      hue = parseInt(body.hue, 10);
+    }
+    var saturation = undefined;
+    if (typeof (body.saturation) === "string") {
+      saturation = parseInt(body.saturation, 10);
+    }
+    var brightness = undefined;
+    if (typeof (body.brightness) === "string") {
+      value = parseInt(body.brightness, 10);
+    }
+    debug("Request hsb: hue=", hue, "saturation=", saturation, "brightness=",
+        brightness, "lights=", targetKeys);
+    lightState.hsb(hue, saturation, brightness);
+    break;
+
+  case "rgb":
+    var red = parseInt(body.red, 10);
+    var green = parseInt(body.green, 10);
+    var blue = parseInt(body.blue, 10);
+
+    debug("Request rgb255: red=", red, "green=", green, "blue=", blue,
+        "zones=", zones);
+    lightState.rgb(red, green, blue);
+    break;
+
+  default:
+
+    console.error("Unsupported command '" + command + "'");
+    return;
+  }
+
+  async.forEach(function changeLightState(id, callback) {
+    debug("Set light", id, "state=", lightState);
+    hue.setLightState(id, lightState, function(error) {
+
+      if (error && error.code == "ECONNRESET") {
+        setTimeout(function() {
+          changeLightState(id, callback);
+        }, 300);
+        return;
+      }
+
+      callback(error);
+    });
+  }, function(error) {
+    console.error(error);
+  });
+
 }
 
 if (commander.headDump) {
