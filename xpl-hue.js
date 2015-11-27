@@ -5,6 +5,7 @@ var Xpl = require("xpl-api");
 var commander = require('commander');
 var os = require('os');
 var debug = require('debug')('xpl-hue:cli');
+var debugDevice = require('debug')('xpl-hue:device');
 var async = require('async');
 
 var Hue = require("./lib/hue");
@@ -251,7 +252,9 @@ function sendFullState(xpl, hue, deviceAliases) {
     errorCount = 0;
 
     async.eachSeries(list, function(light, callback) {
-      debug("light", light);
+      if (debugDevice.enabled) {
+        debugDevice("light", light);
+      }
       var device = light.device;
       var key = device.uniqueid;
       if (deviceAliases) {
