@@ -5,6 +5,7 @@ var Xpl = require("xpl-api");
 var commander = require('commander');
 var os = require('os');
 var debug = require('debug')('xpl-hue:cli');
+var async = require('async');
 
 var Hue = require("./lib/hue");
 
@@ -104,7 +105,7 @@ commander
                       console.log("Xpl bind succeed ");
                       // xpl.sendXplTrig(body, callback);
 
-                      sendFullState(xpl, hue);
+                      sendFullState(xpl, hue, deviceAliases);
 
                       xpl
                           .on(
@@ -230,7 +231,9 @@ process.on('uncaughtException', function(err) {
 
 var errorCount = 0;
 
-function sendFullState(xpl, hue) {
+var lightsStates = {};
+
+function sendFullState(xpl, hue, deviceAliases) {
   hue.listAccessories(function(error, list, states) {
     if (error) {
       console.error(error);
@@ -242,18 +245,91 @@ function sendFullState(xpl, hue) {
         return;
       }
 
-      setTimeout(sendFullState.bind(this, xpl, hue), 300);
+      setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases), 300);
       return;
     }
     errorCount = 0;
 
-    debug("List=", list);
+    async.eachSeries(list, function(light, callback) {
+      debug("light", light);
+      var device = light.device;
+      var key = device.uniqueid;
+      if (deviceAliases) {
+        var dk = deviceAliases[key];
+        if (dk) {
+          key = dk;
+        }
+      }
 
-    list.forEach(function(device) {
-      debug("device", device, "=>", list[device.id]);
+      var state = device.state;
+      var lightState = lightsStates[key];
+      if (!lightState) {
+        lightState = {};
+        lightsStates[key] = lightState;
+      }
+
+      var modifs = [];
+
+      if (typeof (state.on) === "boolean") {
+        if (lightState.on !== state.on) {
+          lightState.on = state.on;
+
+          modifs.push({
+            device : key,
+            type : "status",
+            current : (state.on) ? "enable" : "disable"
+          });
+        }
+      }
+
+      if (typeof (state.bri) === "number") {
+        if (lightState.bri !== state.bri) {
+          lightState.bri = state.bri;
+
+          modifs.push({
+            device : key,
+            type : "brightness",
+            current : state.bri
+          });
+        }
+      }
+      if (typeof (state.hue) === "number") {
+        if (lightState.hue !== state.hue) {
+          lightState.hue = state.hue;
+
+          modifs.push({
+            device : key,
+            type : "hue",
+            current : state.hue
+          });
+        }
+      }
+      if (typeof (state.sat) === "number") {
+        if (lightState.sat !== state.sat) {
+          lightState.sat = state.sat;
+
+          modifs.push({
+            device : key,
+            type : "saturation",
+            current : state.sat
+          });
+        }
+      }
+
+      if (!modifs.length) {
+        return callback();
+      }
+
+      async.eachSeries(modifs, function(body, callback) {
+        xpl.sendXplStat(body, "sensor.basic", callback);
+      }, callback);
+    }, function(error) {
+      if (error) {
+        console.error(error);
+      }
+
+      setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases), 1000);
     });
-
-    setTimeout(sendFullState.bind(this, xpl, hue), 1000);
   });
 }
 
