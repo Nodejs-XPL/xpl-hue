@@ -18,6 +18,7 @@ commander.option("--host <host>", "Hostname of hue bridge");
 commander.option("--port <port>", "Port of hue bridge", parseInt);
 commander.option("--username <username>", "Hue username");
 commander.option("--hueTimeout <ms>", "Hue timeout", parseInt);
+commander.option("--hueRetryTimeout <ms>", "Hue retry timeout", parseInt);
 commander.option("--upnpTimeout <ms>", "UPNP timeout", parseInt);
 commander.option("-a, --deviceAliases <aliases>", "Devices aliases");
 
@@ -115,10 +116,6 @@ commander
         });
 commander.parse(process.argv);
 
-process.on('uncaughtException', function(err) {
-  console.error('Caught exception: ', err);
-});
-
 var errorCount = 0;
 
 var lightsStates = {};
@@ -135,7 +132,8 @@ function sendFullState(xpl, hue, deviceAliases) {
         return;
       }
 
-      setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases), 300);
+      setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases),
+          commander.hueRetryTimeout || 300);
       return;
     }
     errorCount = 0;
@@ -377,11 +375,10 @@ function processXplMessage(hue, deviceAliases, message) {
   async.forEachOf(targetKeys, function changeLightState(item, id, callback) {
     debug("Set light", id, "state=", lightState);
     hue.setLightState(id, lightState, function(error) {
-
       if (error && error.code == "ECONNRESET") {
         setTimeout(function() {
-          changeLightState(id, callback);
-        }, 300);
+          changeLightState(item, id, callback);
+        }, commander.hueRetryTimeout || 300);
         return;
       }
 
