@@ -298,18 +298,6 @@ function processXplMessage(hue, deviceAliases, message) {
       tok = tok.trim();
       debug("Process tok=", tok);
 
-      if (deviceAliases) {
-        for ( var k in deviceAliases) {
-          if (deviceAliases[k] !== tok) {
-            continue;
-          }
-
-          tok = k
-          debug(" alias tok=", tok);
-          break;
-        }
-      }
-
       for ( var l in lightsStates) {
         if (l.uniqueid !== tok) {
           continue;
@@ -320,8 +308,6 @@ function processXplMessage(hue, deviceAliases, message) {
       }
     });
   }
-
-  debug("Process command", command, "zones=", targetKeys);
 
   var lightState = HueAPI.lightState.create();
 
@@ -383,8 +369,8 @@ function processXplMessage(hue, deviceAliases, message) {
     break;
 
   default:
-
-    console.error("Unsupported command '" + command + "'");
+    console.error("Unsupported command '" + command + "' for tarket=",
+        targetKeys);
     return;
   }
 
