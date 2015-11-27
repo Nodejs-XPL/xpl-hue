@@ -374,7 +374,7 @@ function processXplMessage(hue, deviceAliases, message) {
     return;
   }
 
-  async.forEach(targetKeys, function changeLightState(id, callback) {
+  async.forEachOf(targetKeys, function changeLightState(item, id, callback) {
     debug("Set light", id, "state=", lightState);
     hue.setLightState(id, lightState, function(error) {
 
