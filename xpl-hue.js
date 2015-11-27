@@ -9,6 +9,7 @@ var debugDevice = require('debug')('xpl-hue:device');
 var async = require('async');
 
 var Hue = require("./lib/hue");
+var HueAPI = require("node-hue-api");
 
 var DEFAULT_HUE_USERNAME = "XPL-NodeJS";
 
@@ -313,7 +314,7 @@ function processXplMessage(hue, deviceAliases, message) {
 
   debug("Process command", command, "zones=", targetKeys);
 
-  var lightState = Hue.lightState.create();
+  var lightState = HueAPI.lightState.create();
 
   switch (command) {
   case "off":
