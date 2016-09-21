@@ -112,142 +112,155 @@ var lightsStates = {};
 
 function sendFullState(xpl, hue, deviceAliases) {
 	hue.listAccessories((error, list, states) => {
-		if (error) {
-			console.error(error);
+			if (error) {
+				console.error(error);
 
-			errorCount++;
-			if (errorCount > 10) {
-				console.error("Two many error ! Stop process");
-				process.exit(2);
+				errorCount++;
+				if (errorCount > 10) {
+					console.error("Two many error ! Stop process");
+					process.exit(2);
+					return;
+				}
+
+				setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases),
+					commander.hueRetryTimeout || 300);
 				return;
 			}
+			errorCount = 0;
 
-			setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases),
-				commander.hueRetryTimeout || 300);
-			return;
-		}
-		errorCount = 0;
-
-		async.eachSeries(list, (light, callback) => {
-			debugDevice("sendFullState", "light=", light);
-			var device = light.device;
-			var key = device.uniqueid;
-			if (deviceAliases) {
-				var dk = deviceAliases[key];
-				if (dk) {
-					key = dk;
+			async.eachSeries(list, (light, callback) => {
+				debugDevice("sendFullState", "light=", light);
+				var device = light.device;
+				var key = device.uniqueid;
+				if (deviceAliases) {
+					var dk = deviceAliases[key];
+					if (dk) {
+						key = dk;
+					}
 				}
-			}
 
-			var state = device.state;
-			var lightState = lightsStates[key];
-			if (!lightState) {
-				lightState = {
-					id: device.id
-				};
-				lightsStates[key] = lightState;
-			}
+				var state = device.state;
+				var lightState = lightsStates[key];
+				if (!lightState) {
+					lightState = {
+						id: device.id
+					};
+					lightsStates[key] = lightState;
+				}
 
-			var modifs = [];
+				var modifs = [];
 
-			if (typeof (state.on) === "boolean") {
-				if (lightState.on !== state.on) {
-					lightState.on = state.on;
+				let status = (typeof (state.on) === "boolean") && state.on && (typeof (state.reachable) === "boolean") && state.reachable;
+				if (lightState.status !== status) {
+					lightState.status = status;
 
 					modifs.push({
 						device: key,
 						type: "status",
-						current: (state.on) ? "enable" : "disable"
+						current: (status) ? "enable" : "disable"
 					});
 				}
-			}
 
-			if (typeof (state.reachable) === "boolean") {
-				if (lightState.reachable !== state.reachable) {
-					lightState.reachable = state.reachable;
+				if (typeof (state.on) === "boolean") {
+					if (lightState.on !== state.on) {
+						lightState.on = state.on;
 
-					modifs.push({
-						device: key,
-						type: "reachable",
-						current: (state.reachable) ? "enable" : "disable"
-					});
+						modifs.push({
+							device: key,
+							type: "on",
+							current: (state.on) ? "enable" : "disable"
+						});
+					}
 				}
-			}
 
-			if (typeof (state.bri) === "number") {
-				if (lightState.bri !== state.bri) {
-					lightState.bri = state.bri;
+				if (typeof (state.reachable) === "boolean") {
+					if (lightState.reachable !== state.reachable) {
+						lightState.reachable = state.reachable;
 
-					modifs.push({
-						device: key,
-						type: "brightness",
-						current: state.bri
-					});
+						modifs.push({
+							device: key,
+							type: "reachable",
+							current: (state.reachable) ? "enable" : "disable"
+						});
+					}
 				}
-			}
-			if (typeof (state.hue) === "number") {
-				if (lightState.hue !== state.hue) {
-					lightState.hue = state.hue;
 
-					modifs.push({
-						device: key,
-						type: "hue",
-						current: state.hue
-					});
+				if (typeof (state.bri) === "number") {
+					if (lightState.bri !== state.bri) {
+						lightState.bri = state.bri;
+
+						modifs.push({
+							device: key,
+							type: "brightness",
+							current: state.bri
+						});
+					}
 				}
-			}
-			if (typeof (state.sat) === "number") {
-				if (lightState.sat !== state.sat) {
-					lightState.sat = state.sat;
+				if (typeof (state.hue) === "number") {
+					if (lightState.hue !== state.hue) {
+						lightState.hue = state.hue;
 
-					modifs.push({
-						device: key,
-						type: "saturation",
-						current: state.sat
-					});
+						modifs.push({
+							device: key,
+							type: "hue",
+							current: state.hue
+						});
+					}
 				}
-			}
-			if (typeof (state.alert) === "string") {
-				if (lightState.alert !== state.alert) {
-					lightState.alert = state.alert;
+				if (typeof (state.sat) === "number") {
+					if (lightState.sat !== state.sat) {
+						lightState.sat = state.sat;
 
-					modifs.push({
-						device: key,
-						type: "alert",
-						current: state.alert
-					});
+						modifs.push({
+							device: key,
+							type: "saturation",
+							current: state.sat
+						});
+					}
 				}
-			}
-			if (typeof (state.effect) === "string") {
-				if (lightState.effect !== state.effect) {
-					lightState.effect = state.effect;
+				if (typeof (state.alert) === "string") {
+					if (lightState.alert !== state.alert) {
+						lightState.alert = state.alert;
 
-					modifs.push({
-						device: key,
-						type: "effect",
-						current: state.effect
-					});
+						modifs.push({
+							device: key,
+							type: "alert",
+							current: state.alert
+						});
+					}
 				}
-			}
+				if (typeof (state.effect) === "string") {
+					if (lightState.effect !== state.effect) {
+						lightState.effect = state.effect;
 
-			if (!modifs.length) {
-				return callback();
-			}
+						modifs.push({
+							device: key,
+							type: "effect",
+							current: state.effect
+						});
+					}
+				}
 
-			async.eachSeries(modifs, (body, callback) => {
-				debug("sendFullState", "Send modifs", modifs);
+				if (!modifs.length) {
+					return callback();
+				}
 
-				xpl.sendXplStat(body, "sensor.basic", callback);
-			}, callback);
+				async.eachSeries(modifs, (body, callback) => {
+					debug("sendFullState", "Send modifs", modifs);
 
-		}, (error) => {
-			if (error) {
-				console.error(error);
-			}
+					xpl.sendXplStat(body, "sensor.basic", callback);
+				}, callback);
 
-			setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases), 1000);
-		});
-	});
+			}, (error) => {
+				if (error) {
+					console.error(error);
+				}
+
+				setTimeout(sendFullState.bind(this, xpl, hue, deviceAliases), 1000);
+			});
+		}
+	)
+	;
 }
 
 function processXplMessage(hue, deviceAliases, message) {
