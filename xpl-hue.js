@@ -10,7 +10,7 @@ const async = require('async');
 const util = require('util');
 
 const Hue = require("./lib/hue");
-const HueAPI = require("node-hue-api");
+const HueApi = require("node-hue-api");
 
 const DEFAULT_HUE_USERNAME = "XPL-NodeJS";
 
@@ -52,9 +52,30 @@ commander.command('listLights').action(() => {
 			return console.error(error);
 		}
 
-		var api = new HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+		var api = new HueApi.HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
 
 		api.lights((error, list) => {
+			if (error) {
+				console.error("ERROR=", error);
+				return;
+			}
+
+			console.log("list=", util.inspect(list, {depth: null}));
+		});
+	});
+});
+
+commander.command('listSensors').action(() => {
+
+	var hue = new Hue(commander);
+	hue.getHueAddress((error, hueAddress) => {
+		if (error) {
+			return console.error(error);
+		}
+
+		var api = new HueApi.HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+
+		api.sensors((error, list) => {
 			if (error) {
 				console.error("ERROR=", error);
 				return;
@@ -72,7 +93,7 @@ commander.command('listAccessories').action(() => {
 			return console.error(error);
 		}
 
-		var api = new HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+		var api = new HueApi.HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
 		hue.listAccessories((error, list) => {
 			if (error) {
 				console.error("ERROR=", error);
