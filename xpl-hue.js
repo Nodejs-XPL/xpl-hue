@@ -315,15 +315,45 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 		let modifs = [];
 
-		let status = (typeof (state.on) === "boolean") && state.on && (typeof (state.reachable) === "boolean") && state.reachable;
-		if (sensorState.status !== status) {
-			sensorState.status = status;
 
-			modifs.push({
-				device: key,
-				type: "status",
-				current: (status) ? "enable" : "disable"
-			});
+		if (typeof (state.lastupdated) === "string") {
+			if (sensorState.lastupdated !== state.lastupdated) {
+
+				for (let k in state) {
+					if (typeof(k) === 'object') {
+						continue;
+					}
+
+					if (sensorState[k] === state[k]) {
+						continue;
+					}
+
+					sensorState[k] = state[k];
+
+					modifs.push({
+						device: key,
+						type: k,
+						current: state[k]
+					});
+				}
+
+				for (let k in config) {
+					if (typeof(k) === 'object') {
+						continue;
+					}
+					if (sensorState[k] === config[k]) {
+						continue;
+					}
+
+					sensorState[k] = config[k];
+
+					modifs.push({
+						device: key,
+						type: k,
+						current: state[k]
+					});
+				}
+			}
 		}
 
 		if (!modifs.length) {
