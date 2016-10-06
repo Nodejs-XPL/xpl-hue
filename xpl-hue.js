@@ -7,6 +7,7 @@ const os = require('os');
 const debug = require('debug')('xpl-hue:cli');
 const debugDevice = require('debug')('xpl-hue:device');
 const async = require('async');
+const util = require('util');
 
 const Hue = require("./lib/hue");
 const HueAPI = require("node-hue-api");
@@ -23,17 +24,13 @@ commander.option("--upnpTimeout <ms>", "UPNP timeout", parseInt);
 commander.option("-a, --deviceAliases <aliases>", "Devices aliases");
 
 commander.option("--heapDump", "Enable heap dump (require heapdump)");
+commander.username = DEFAULT_HUE_USERNAME;
 
 Xpl.fillCommander(commander);
 
-commander.command('registerUser [username]').description("Create a user")
-	.action(function (username) {
+commander.command('registerUser [username]').description("Create a user").action(function (username) {
 		if (!username) {
 			username = commander.username;
-		}
-
-		if (!username) {
-			username = DEFAULT_HUE_USERNAME;
 		}
 
 		var hue = new Hue(commander);
@@ -47,15 +44,34 @@ commander.command('registerUser [username]').description("Create a user")
 		});
 	});
 
-commander.command('run').description("Start processing Hue").action(() => {
-	console.log("Start");
+commander.command('listLights').action(() => {
+	var hue = new Hue(commander);
+	hue.lights((error, list) => {
+		if (error) {
+			console.error("ERROR=", error);
+			return;
+		}
 
-	if (!commander.username) {
-		commander.username = DEFAULT_HUE_USERNAME;
-	}
+		console.log("list=", util.inspect(list, {depth: null}));
+	});
+});
+
+commander.command('listAccessories').action(() => {
+	var hue = new Hue(commander);
+	hue.listAccessories((error, list) => {
+		if (error) {
+			console.error("ERROR=", error);
+			return;
+		}
+
+		console.log("list=", util.inspect(list, {depth: null}));
+	});
+});
+
+commander.command('run').description("Start processing Hue").action(() => {
+	console.log("Start processing hue");
 
 	var hue = new Hue(commander);
-
 	hue.listAccessories((error, list) => {
 		if (error) {
 			if (error.message === 'unauthorized user') {
