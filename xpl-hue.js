@@ -326,17 +326,23 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 			if (sensorState.lastupdated !== state.lastupdated) {
 				for (let k in state) {
 					let v = state[k];
-					if (typeof(v) === 'object' || v === undefined) {
+					if (typeof(v) === 'object' || v === undefined || k === "lastupdated") {
 						continue;
 					}
 
 					sensorState[k] = v;
 
-					modifs.push({
+					let d = {
 						device: key,
 						type: k,
 						current: v
-					});
+					};
+
+					if (state.lastupdated) {
+						d.date = state.lastupdated;
+					}
+
+					modifs.push(d);
 				}
 			}
 		} else {
