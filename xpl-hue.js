@@ -324,6 +324,8 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 		if (typeof (state.lastupdated) === "string") {
 			if (sensorState.lastupdated !== state.lastupdated) {
+				sensorState.lastupdated = state.lastupdated;
+
 				for (let k in state) {
 					let v = state[k];
 					if (typeof(v) === 'object' || v === undefined || k === "lastupdated") {

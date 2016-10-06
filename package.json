@@ -1,6 +1,6 @@
 {
   "name": "xpl-hue",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "XPL bridge for Philips Hue lights",
   "bin": {
     "xpl-hue": "./bin/xpl-hue"
