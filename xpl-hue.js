@@ -294,6 +294,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 	async.eachSeries(list, (sensor, callback) => {
+
 		debugDevice("sendSensorsStates", "test sensor=", sensor);
 		let device = sensor.device;
 		let key = device.uniqueid;
@@ -302,6 +303,10 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 			if (dk) {
 				key = dk;
 			}
+		}
+
+		if (!key) {
+			return callback();
 		}
 
 		let state = device.state;
@@ -320,51 +325,57 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 		if (typeof (state.lastupdated) === "string") {
 			if (sensorState.lastupdated !== state.lastupdated) {
 				for (let k in state) {
-					if (typeof(state[k]) === 'object') {
+					let v = state[k];
+					if (typeof(v) === 'object' || v === undefined) {
 						continue;
 					}
+
+					sensorState[k] = v;
 
 					modifs.push({
 						device: key,
 						type: k,
-						current: state[k]
+						current: v
 					});
 				}
 			}
 		} else {
 			for (let k in state) {
-				if (typeof(state[k]) === 'object') {
+				let v = state[k];
+				if (typeof(v) === 'object') {
 					continue;
 				}
 
-				if (sensorState[k] === state[k]) {
+				if (sensorState[k] === v) {
 					continue;
 				}
 
-				sensorState[k] = state[k];
+				sensorState[k] = v;
 
 				modifs.push({
 					device: key,
 					type: k,
-					current: state[k]
+					current: v
 				});
 			}
 		}
 
 		for (let k in config) {
-			if (typeof(config[k]) === 'object') {
+			let v = config[k];
+
+			if (typeof(v) === 'object' || v === undefined) {
 				continue;
 			}
-			if (sensorState[k] === config[k]) {
+			if (sensorState[k] === v) {
 				continue;
 			}
 
-			sensorState[k] = config[k];
+			sensorState[k] = v;
 
 			modifs.push({
 				device: key,
 				type: k,
-				current: state[k]
+				current: v
 			});
 		}
 
