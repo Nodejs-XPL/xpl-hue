@@ -29,42 +29,58 @@ commander.username = DEFAULT_HUE_USERNAME;
 Xpl.fillCommander(commander);
 
 commander.command('registerUser [username]').description("Create a user").action(function (username) {
-		if (!username) {
-			username = commander.username;
-		}
+	if (!username) {
+		username = commander.username;
+	}
 
-		var hue = new Hue(commander);
-		hue.registerUser(username, function (error, username) {
-			if (error) {
-				console.error(error);
-				return;
-			}
-
-			console.log("User '" + username + "' created !");
-		});
-	});
-
-commander.command('listLights').action(() => {
 	var hue = new Hue(commander);
-	hue.lights((error, list) => {
+	hue.registerUser(username, function (error, username) {
 		if (error) {
-			console.error("ERROR=", error);
+			console.error(error);
 			return;
 		}
 
-		console.log("list=", util.inspect(list, {depth: null}));
+		console.log("User '" + username + "' created !");
+	});
+});
+
+commander.command('listLights').action(() => {
+
+	var hue = new Hue(commander);
+	hue.getHueAddress((error, hueAddress) => {
+		if (error) {
+			return console.error(error);
+		}
+
+		var api = new HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+
+		api.lights((error, list) => {
+			if (error) {
+				console.error("ERROR=", error);
+				return;
+			}
+
+			console.log("list=", util.inspect(list, {depth: null}));
+		});
 	});
 });
 
 commander.command('listAccessories').action(() => {
 	var hue = new Hue(commander);
-	hue.listAccessories((error, list) => {
+	hue.getHueAddress((error, hueAddress) => {
 		if (error) {
-			console.error("ERROR=", error);
-			return;
+			return console.error(error);
 		}
 
-		console.log("list=", util.inspect(list, {depth: null}));
+		var api = new HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+		hue.listAccessories((error, list) => {
+			if (error) {
+				console.error("ERROR=", error);
+				return;
+			}
+
+			console.log("list=", util.inspect(list, {depth: null}));
+		});
 	});
 });
 
