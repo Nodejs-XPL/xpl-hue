@@ -507,7 +507,7 @@ function processXplMessage(hue, deviceAliases, message) {
 		});
 	}
 
-	var lightState = HueAPI.lightState.create();
+	var lightState = HueApi.lightState.create();
 
 	switch (command) {
 		case "off":
