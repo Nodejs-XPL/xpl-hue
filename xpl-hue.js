@@ -320,7 +320,7 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 		if (typeof (state.lastupdated) === "string") {
 			if (sensorState.lastupdated !== state.lastupdated) {
 				for (let k in state) {
-					if (typeof(k) === 'object') {
+					if (typeof(state[k]) === 'object') {
 						continue;
 					}
 
@@ -333,7 +333,7 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 			}
 		} else {
 			for (let k in state) {
-				if (typeof(k) === 'object') {
+				if (typeof(state[k]) === 'object') {
 					continue;
 				}
 
@@ -352,7 +352,7 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 		}
 
 		for (let k in config) {
-			if (typeof(k) === 'object') {
+			if (typeof(config[k]) === 'object') {
 				continue;
 			}
 			if (sensorState[k] === config[k]) {
