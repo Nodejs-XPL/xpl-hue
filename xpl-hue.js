@@ -321,7 +321,6 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 		let modifs = [];
 
-
 		if (typeof (state.lastupdated) === "string") {
 			if (sensorState.lastupdated !== state.lastupdated) {
 				sensorState.lastupdated = state.lastupdated;
@@ -404,11 +403,11 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 function syncState(xpl, hue, deviceAliases) {
 	hue.listLights((error, list, states) => {
 		if (error) {
-			console.error(error);
+			console.error("listLights: error=", error);
 
 			errorCount++;
 			if (errorCount > 10) {
-				console.error("Two many error ! Stop process");
+				console.error("listLights: Two many error ! Stop process");
 				process.exit(2);
 				return;
 			}
@@ -421,7 +420,7 @@ function syncState(xpl, hue, deviceAliases) {
 		sendLightsStates(list, xpl, deviceAliases, (error) => {
 			function callback(error) {
 				if (error) {
-					console.error(error);
+					console.error("sendLightsStates: error=", error);
 				}
 				setTimeout(syncState.bind(this, xpl, hue, deviceAliases), 500);
 			}
@@ -496,7 +495,7 @@ function processXplMessage(hue, deviceAliases, message) {
 	} else {
 		device.split(',').forEach(function (tok) {
 			tok = tok.trim();
-			debug("Process tok=", tok);
+			debug("processXplMessage", "Process tok=", tok);
 
 			for (var l in lightsStates) {
 				if (l !== tok) {
@@ -553,7 +552,7 @@ function processXplMessage(hue, deviceAliases, message) {
 			if (typeof (body.brightness) === "string") {
 				brightness = parseInt(body.brightness, 10);
 			}
-			debug("Request hsb: hue=", hue, "saturation=", saturation, "brightness=",
+			debug("processXplMessage", "Request hsb: hue=", hue, "saturation=", saturation, "brightness=",
 				brightness, "lights=", targetKeys);
 			lightState.hsb(hue, saturation, brightness);
 			break;
@@ -569,7 +568,7 @@ function processXplMessage(hue, deviceAliases, message) {
 			break;
 
 		default:
-			console.error("Unsupported command '" + command + "' for tarket=", targetKeys);
+			console.error("Unsupported command '" + command + "' for target=", targetKeys);
 			return;
 	}
 
