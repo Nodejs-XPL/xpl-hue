@@ -308,6 +308,10 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 			if (dk) {
 				key = dk;
 			}
+      if (key==="ignore") {
+        callback();
+        return;
+      }
 		}
 
 		if (!key) {
