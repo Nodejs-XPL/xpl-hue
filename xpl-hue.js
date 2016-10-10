@@ -174,6 +174,11 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 			var dk = deviceAliases[key];
 			if (dk) {
 				key = dk;
+
+				if (key==="ignore") {
+					callback();
+					return;
+				}
 			}
 		}
 
