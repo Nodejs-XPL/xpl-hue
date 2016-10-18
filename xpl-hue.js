@@ -538,16 +538,17 @@ function processXplMessage(hue, deviceAliases, message) {
 			lightState.on();
 			break;
 
-		case "brightness":
-			var brightness = undefined;
+		case "brightness": {
+			let brightness = undefined;
 			if (typeof (current) === "string") {
 				brightness = parseInt(current, 10);
 			}
 			debug("processXplMessage", "Request brightness: ", brightness, "zones=", targetKeys);
 			lightState.bri(brightness);
 			break;
+		}
 
-		case "white":
+		case "white": {
 			let white = undefined;
 			if (typeof (current) === "string") {
 				white = parseInt(current, 10);
@@ -562,8 +563,9 @@ function processXplMessage(hue, deviceAliases, message) {
 			debug("processXplMessage", "Request white=", white, "colorTemp=", colorTemp, "lights=", targetKeys);
 			lightState.white(colorTemp, white);
 			break;
+		}
 
-		case "hsb":
+		case "hsb": {
 			let hue = undefined;
 			if (typeof (body.hue) === "string") {
 				hue = parseInt(body.hue, 10);
@@ -579,8 +581,9 @@ function processXplMessage(hue, deviceAliases, message) {
 			debug("processXplMessage", "Request hsb: hue=", hue, "saturation=", saturation, "brightness=", brightness, "lights=", targetKeys);
 			lightState.hsb(hue, saturation, brightness);
 			break;
+		}
 
-		case "rgb":
+		case "rgb": {
 			let red = parseInt(body.red, 10);
 			let green = parseInt(body.green, 10);
 			let blue = parseInt(body.blue, 10);
@@ -588,6 +591,7 @@ function processXplMessage(hue, deviceAliases, message) {
 			debug("processXplMessage", "Request rgb255: red=", red, "green=", green, "blue=", blue, "zones=", zones);
 			lightState.rgb(red, green, blue);
 			break;
+		}
 
 		default:
 			console.error("Unsupported command '" + command + "' for target=", targetKeys);
