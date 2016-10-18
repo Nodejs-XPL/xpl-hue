@@ -8,11 +8,14 @@ const debug = require('debug')('xpl-hue:cli');
 const debugDevice = require('debug')('xpl-hue:device');
 const async = require('async');
 const util = require('util');
+const Semaphore = require('semaphore');
 
 const Hue = require("./lib/hue");
 const HueApi = require("node-hue-api");
 
 const DEFAULT_HUE_USERNAME = "XPL-NodeJS";
+
+const hueSemaphore = Semaphore(1);
 
 commander.version(require("./package.json").version);
 commander.option("--host <host>", "Hostname of hue bridge");
@@ -175,7 +178,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 			if (dk) {
 				key = dk;
 
-				if (key==="ignore") {
+				if (key === "ignore") {
 					callback();
 					return;
 				}
@@ -308,10 +311,10 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 			if (dk) {
 				key = dk;
 			}
-      if (key==="ignore") {
-        callback();
-        return;
-      }
+			if (key === "ignore") {
+				callback();
+				return;
+			}
 		}
 
 		if (!key) {
@@ -410,40 +413,45 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 }
 
 function syncState(xpl, hue, deviceAliases) {
-	hue.listLights((error, list, states) => {
-		if (error) {
-			console.error("listLights: error=", error);
+	hueSemaphore.take(() => {
+		hue.listLights((error, list, states) => {
+			if (error) {
+				console.error("listLights: error=", error);
 
-			errorCount++;
-			if (errorCount > 10) {
-				console.error("listLights: Two many error ! Stop process");
-				process.exit(2);
+				errorCount++;
+				if (errorCount > 10) {
+					console.error("listLights: Two many error ! Stop process");
+					process.exit(2);
+					return;
+				}
+
+				hueSemaphore.leave();
+				setTimeout(syncState.bind(this, xpl, hue, deviceAliases), commander.hueRetryTimeout || 300);
 				return;
 			}
+			errorCount = 0;
 
-			setTimeout(syncState.bind(this, xpl, hue, deviceAliases), commander.hueRetryTimeout || 300);
-			return;
-		}
-		errorCount = 0;
+			sendLightsStates(list, xpl, deviceAliases, (error) => {
+				function callback(error) {
+					if (error) {
+						console.error("sendLightsStates: error=", error);
+					}
 
-		sendLightsStates(list, xpl, deviceAliases, (error) => {
-			function callback(error) {
-				if (error) {
-					console.error("sendLightsStates: error=", error);
+					hueSemaphore.leave();
+					setTimeout(syncState.bind(this, xpl, hue, deviceAliases), 500);
 				}
-				setTimeout(syncState.bind(this, xpl, hue, deviceAliases), 500);
-			}
 
-			if (error) {
-				return callback(error);
-			}
-
-			hue.listSensors((error, list, states) => {
 				if (error) {
 					return callback(error);
 				}
 
-				sendSensorsStates(list, xpl, deviceAliases, callback);
+				hue.listSensors((error, list, states) => {
+					if (error) {
+						return callback(error);
+					}
+
+					sendSensorsStates(list, xpl, deviceAliases, callback);
+				});
 			});
 		});
 	});
@@ -490,8 +498,8 @@ function processXplMessage(hue, deviceAliases, message) {
 
 		case 'bright':
 			command = "brightness";
-			if (command.data1) {
-				current = parseInt(command.data1, 10) / 255 * 100;
+			if (body.data1) {
+				current = parseInt(body.data1, 10) / 255 * 100;
 			}
 			break;
 	}
@@ -540,39 +548,44 @@ function processXplMessage(hue, deviceAliases, message) {
 			break;
 
 		case "white":
-			var white = undefined;
+			let white = undefined;
 			if (typeof (current) === "string") {
 				white = parseInt(current, 10);
 			}
-			debug("processXplMessage", "Request white: ", white, "lights=", targetKeys);
-			lightState.white(500, white);
+
+			let colorTemp = 500;
+			if (typeof(body.colorTemp) === "string") {
+				colorTemp = parseInt(body.colorTemp, 10);
+				colorTemp = isNaN(colorTemp) ? 500 : Math.min(Math.max(colorTemp, 153), 500);
+			}
+
+			debug("processXplMessage", "Request white=", white, "colorTemp=", colorTemp, "lights=", targetKeys);
+			lightState.white(colorTemp, white);
 			break;
 
 		case "hsb":
-			var hue = undefined;
+			let hue = undefined;
 			if (typeof (body.hue) === "string") {
 				hue = parseInt(body.hue, 10);
 			}
-			var saturation = undefined;
+			let saturation = undefined;
 			if (typeof (body.saturation) === "string") {
 				saturation = parseInt(body.saturation, 10);
 			}
-			var brightness = undefined;
+			let brightness = undefined;
 			if (typeof (body.brightness) === "string") {
 				brightness = parseInt(body.brightness, 10);
 			}
-			debug("processXplMessage", "Request hsb: hue=", hue, "saturation=", saturation, "brightness=",
-				brightness, "lights=", targetKeys);
+			debug("processXplMessage", "Request hsb: hue=", hue, "saturation=", saturation, "brightness=", brightness, "lights=", targetKeys);
 			lightState.hsb(hue, saturation, brightness);
 			break;
 
 		case "rgb":
-			var red = parseInt(body.red, 10);
-			var green = parseInt(body.green, 10);
-			var blue = parseInt(body.blue, 10);
+			let red = parseInt(body.red, 10);
+			let green = parseInt(body.green, 10);
+			let blue = parseInt(body.blue, 10);
 
-			debug("processXplMessage", "Request rgb255: red=", red, "green=", green, "blue=", blue,
-				"zones=", zones);
+			debug("processXplMessage", "Request rgb255: red=", red, "green=", green, "blue=", blue, "zones=", zones);
 			lightState.rgb(red, green, blue);
 			break;
 
@@ -581,24 +594,32 @@ function processXplMessage(hue, deviceAliases, message) {
 			return;
 	}
 
-	async.forEachOf(targetKeys, function changeLightState(item, id, callback) {
-		debug("processXplMessage", "Set light", id, "state=", lightState);
-		hue.setLightState(id, lightState, (error) => {
-			if (error && error.code == "ECONNRESET") {
-				setTimeout(() => {
-					changeLightState(item, id, callback);
-				}, commander.hueRetryTimeout || 300);
-				return;
+	hueSemaphore.take(() => {
+		async.forEachOfSeries(targetKeys, function changeLightState(item, id, callback) {
+			debug("processXplMessage", "Set light", id, "state=", lightState);
+			hue.setLightState(id, lightState, (error) => {
+				if (error) {
+					debug("processXplMessage", "setLightState error=", error);
+				}
+
+				if (error && error.code == "ECONNRESET") {
+					console.error("ECONNRESET when setting lightSate id=", id, "to=", lightState);
+					setTimeout(() => {
+						changeLightState(item, id, callback);
+					}, commander.hueRetryTimeout || 300);
+					return;
+				}
+
+				callback(error);
+			});
+		}, (error) => {
+			hueSemaphore.leave();
+
+			if (error) {
+				console.error(error);
 			}
-
-			callback(error);
 		});
-	}, (error) => {
-		if (error) {
-			console.error(error);
-		}
 	});
-
 }
 
 if (commander.headDump) {

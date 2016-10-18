@@ -1,6 +1,6 @@
 {
   "name": "xpl-hue",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "XPL bridge for Philips Hue lights",
   "bin": {
     "xpl-hue": "./bin/xpl-hue"
@@ -10,6 +10,7 @@
     "commander": "~2.3",
     "debug": "~2.2",
     "node-hue-api": "git://github.com/oeuillot/node-hue-api",
+    "semaphore": "^1.0.5",
     "xpl-api": "^2.1.2"
   },
   "keywords": [
