@@ -510,16 +510,18 @@ function processXplMessage(hue, deviceAliases, message) {
 			targetKeys[l.id] = true;
 		}
 	} else {
-		device.split(',').forEach(function (tok) {
+		device.split(',').forEach((tok) => {
 			tok = tok.trim();
 			debug("processXplMessage", "Process tok=", tok);
 
 			for (var l in lightsStates) {
+				let v=lightsStates[l];
+
 				if (l !== tok) {
 					continue;
 				}
 
-				targetKeys[lightsStates[l].id] = true;
+				targetKeys[v.id] = true;
 				break;
 			}
 		});
