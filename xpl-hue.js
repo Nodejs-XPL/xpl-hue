@@ -33,10 +33,11 @@ Xpl.fillCommander(commander);
 
 commander.command('registerUser [username]').description("Create a user").action(function (username) {
 	if (!username) {
-		username = commander.username;
+		username = DEFAULT_HUE_USERNAME;
 	}
 
-	var hue = new Hue(commander);
+
+	const hue = new Hue(commander);
 	hue.registerUser(username, function (error, username) {
 		if (error) {
 			console.error(error);
@@ -171,6 +172,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 
 	async.eachSeries(list, (light, callback) => {
 		debugDevice("sendLightsStates", "test light=", light);
+//		console.log("sendLightsStates", "test light=", light);
 		let device = light.device;
 		let key = device.uniqueid;
 		if (deviceAliases) {
@@ -211,6 +213,8 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 			if (lightState.on !== state.on) {
 				lightState.on = state.on;
 
+				console.log('change state=', state, 'key=', key);
+
 				modifs.push({
 					device: key,
 					type: "on",
@@ -238,7 +242,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				modifs.push({
 					device: key,
 					type: "brightness",
-					current: state.bri
+					current: state.bri/254*100
 				});
 			}
 		}
@@ -249,7 +253,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				modifs.push({
 					device: key,
 					type: "hue",
-					current: state.hue
+					current: state.hue/65535*360
 				});
 			}
 		}
@@ -260,7 +264,30 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				modifs.push({
 					device: key,
 					type: "saturation",
-					current: state.sat
+					current: state.sat/254*100
+				});
+			}
+		}
+		if (typeof (state.ct) === "number") {
+			if (lightState.ct !== state.ct) {
+				lightState.ct = state.ct;
+
+				modifs.push({
+					device: key,
+					type: "ct",
+					current: state.ct
+				});
+			}
+		}
+		if (Array.isArray(state.xy)) {
+			const xy=state.xy.join(',');
+			if (lightState.xy !== xy) {
+				lightState.xy = xy;
+
+				modifs.push({
+					device: key,
+					type: "xy",
+					current: xy
 				});
 			}
 		}
@@ -286,13 +313,24 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				});
 			}
 		}
+		if (typeof (state.colormode) === "string") {
+			if (lightState.colormode !== state.colormode) {
+				lightState.colormode = state.colormode;
+
+				modifs.push({
+					device: key,
+					type: "colormode",
+					current: state.colormode
+				});
+			}
+		}
 
 		if (!modifs.length) {
 			return callback();
 		}
 
 		async.eachSeries(modifs, (body, callback) => {
-			debug("sendLightsStates", "Send modifs", modifs);
+			//console.log("Modification detected = ", modifs);
 
 			xpl.sendXplStat(body, "sensor.basic", callback);
 		}, callback);
@@ -339,16 +377,27 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 				for (let k in state) {
 					let v = state[k];
-					if (typeof(v) === 'object' || v === undefined || k === "lastupdated") {
+					if (typeof (v) === 'object' || v === undefined || k === "lastupdated") {
 						continue;
 					}
 
 					sensorState[k] = v;
 
+                                let units;
+
+				if (k==='battery') {
+					units='%';
+				}
+                                if (k==='temperature') {
+                                        v/=100;
+                                        units='c';
+                                }
+					
 					let d = {
 						device: key,
 						type: k,
-						current: v
+						current: v,
+						units
 					};
 
 					if (state.lastupdated) {
@@ -361,7 +410,8 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 		} else {
 			for (let k in state) {
 				let v = state[k];
-				if (typeof(v) === 'object') {
+
+				if (typeof (v) === 'object') {
 					continue;
 				}
 
@@ -371,10 +421,21 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 				sensorState[k] = v;
 
+				let units;
+
+				if (k==='temperature') {
+					v/=100;
+					units='c';
+				}
+				if (k==='battery') {
+					units='%';
+				}
+
 				modifs.push({
 					device: key,
 					type: k,
-					current: v
+					current: v,
+					units
 				});
 			}
 		}
@@ -382,19 +443,31 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 		for (let k in config) {
 			let v = config[k];
 
-			if (typeof(v) === 'object' || v === undefined) {
+
+			if (typeof (v) === 'object' || v === undefined) {
 				continue;
 			}
 			if (sensorState[k] === v) {
 				continue;
 			}
+			let units;
+                               if (k==='temperature') {
+                                        v/=100;
+                                        units='c';
+                                }
+                                if (k==='battery') {
+                                        units='%';
+                                }
+
+
 
 			sensorState[k] = v;
 
 			modifs.push({
 				device: key,
 				type: k,
-				current: v
+				current: v,
+				units
 			});
 		}
 
@@ -470,7 +543,7 @@ function processXplMessage(hue, deviceAliases, message) {
 
 	var command = body.command;
 	var device = body.device;
-	var current;
+	var current = body.current;
 
 	switch (command) {
 		// Xpl-delabarre
@@ -515,7 +588,7 @@ function processXplMessage(hue, deviceAliases, message) {
 			debug("processXplMessage", "Process tok=", tok);
 
 			for (var l in lightsStates) {
-				let v=lightsStates[l];
+				let v = lightsStates[l];
 
 				if (l !== tok) {
 					continue;
@@ -526,6 +599,13 @@ function processXplMessage(hue, deviceAliases, message) {
 			}
 		});
 	}
+
+	if (!Object.keys(targetKeys).length) {
+		return;
+	}
+
+	console.log("processXplMessage", "Receive message", message, 'command=', command, 'device=', device, "current=", current);
+
 
 	var lightState = HueApi.lightState.create();
 
@@ -557,7 +637,7 @@ function processXplMessage(hue, deviceAliases, message) {
 			}
 
 			let colorTemp = 500;
-			if (typeof(body.colorTemp) === "string") {
+			if (typeof (body.colorTemp) === "string") {
 				colorTemp = parseInt(body.colorTemp, 10);
 				colorTemp = isNaN(colorTemp) ? 500 : Math.min(Math.max(colorTemp, 153), 500);
 			}
@@ -602,10 +682,10 @@ function processXplMessage(hue, deviceAliases, message) {
 
 	hueSemaphore.take(() => {
 		async.forEachOfSeries(targetKeys, function changeLightState(item, id, callback) {
-			debug("processXplMessage", "Set light", id, "state=", lightState);
+			console.log("processXplMessage", "Set light", id, "state=", lightState);
 			hue.setLightState(id, lightState, (error) => {
 				if (error) {
-					debug("processXplMessage", "setLightState error=", error);
+					console.error("processXplMessage", "setLightState error=", error);
 				}
 
 				if (error && error.code == "ECONNRESET") {

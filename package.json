@@ -9,7 +9,7 @@
     "async": "~1.5",
     "commander": "~2.3",
     "debug": "~2.2",
-    "node-hue-api": "git://github.com/oeuillot/node-hue-api",
+    "node-hue-api": "~2.4",
     "semaphore": "^1.0.5",
     "xpl-api": "^2.1.2"
   },
