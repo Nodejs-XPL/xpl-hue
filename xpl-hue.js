@@ -25,6 +25,7 @@ commander.option("--hueTimeout <ms>", "Hue timeout", parseInt);
 commander.option("--hueRetryTimeout <ms>", "Hue retry timeout", parseInt);
 commander.option("--upnpTimeout <ms>", "UPNP timeout", parseInt);
 commander.option("-a, --deviceAliases <aliases>", "Devices aliases");
+commander.option("--verifyUpdates", "Send only updates");
 
 commander.option("--heapDump", "Enable heap dump (require heapdump)");
 commander.username = DEFAULT_HUE_USERNAME;
@@ -479,7 +480,19 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 		async.eachSeries(modifs, (body, callback) => {
 			debug("sendSensorsStates", "Send modifs", modifs);
 
-			xpl.sendXplStat(body, "sensor.basic", callback);
+			if (!commander.verifyUpdates) {
+				xpl.sendXplStat(body, "sensor.basic", callback);
+				return;
+			}
+
+			dbClient.getLast(body.device, (error, result) => {
+				if (result.value === body.current) {
+					return callback();
+				}
+
+				xpl.sendXplStat(body, "sensor.basic", callback);
+			});
+
 		}, callback);
 
 	}, callback);
