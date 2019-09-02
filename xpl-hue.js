@@ -243,7 +243,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				modifs.push({
 					device: key,
 					type: "brightness",
-					current: state.bri/254*100
+					current: state.bri / 254 * 100
 				});
 			}
 		}
@@ -254,7 +254,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				modifs.push({
 					device: key,
 					type: "hue",
-					current: state.hue/65535*360
+					current: state.hue / 65535 * 360
 				});
 			}
 		}
@@ -265,7 +265,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				modifs.push({
 					device: key,
 					type: "saturation",
-					current: state.sat/254*100
+					current: state.sat / 254 * 100
 				});
 			}
 		}
@@ -275,15 +275,15 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 
 				modifs.push({
 					device: key,
-					type: "ct",
-					current: state.ct
+					type: "temperature",
+					current: 1000000.0 / state.ct
 				});
 			}
 		}
 		if (Array.isArray(state.xy)) {
-			const xy=state.xy.join(',');
+			const xy = state.xy.join(',');
 			if (lightState.xy !== xy) {
-				lightState.xy = xy;
+				lightState.xy = xy;  // CIE 1931
 
 				modifs.push({
 					device: key,
@@ -384,16 +384,16 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 					sensorState[k] = v;
 
-                                let units;
+					let units;
 
-				if (k==='battery') {
-					units='%';
-				}
-                                if (k==='temperature') {
-                                        v/=100;
-                                        units='c';
-                                }
-					
+					if (k === 'battery') {
+						units = '%';
+					}
+					if (k === 'temperature') {
+						v /= 100;
+						units = 'c';
+					}
+
 					let d = {
 						device: key,
 						type: k,
@@ -424,12 +424,12 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 
 				let units;
 
-				if (k==='temperature') {
-					v/=100;
-					units='c';
+				if (k === 'temperature') {
+					v /= 100;
+					units = 'c';
 				}
-				if (k==='battery') {
-					units='%';
+				if (k === 'battery') {
+					units = '%';
 				}
 
 				modifs.push({
@@ -452,14 +452,13 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 				continue;
 			}
 			let units;
-                               if (k==='temperature') {
-                                        v/=100;
-                                        units='c';
-                                }
-                                if (k==='battery') {
-                                        units='%';
-                                }
-
+			if (k === 'temperature') {
+				v /= 100;
+				units = 'c';
+			}
+			if (k === 'battery') {
+				units = '%';
+			}
 
 
 			sensorState[k] = v;
