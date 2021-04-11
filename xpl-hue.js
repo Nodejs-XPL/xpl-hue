@@ -698,8 +698,12 @@ async function processXplMessage(hue, deviceAliases, message) {
 
 	console.log("processXplMessage", "Receive message", message, 'command=', command, 'device=', device, "current=", current);
 
-
-	const lightState = new v3.lightStates.LightState();
+	let lightState;
+	if (!Object.keys(targetKeys).length) {
+		lightState=new v3.lightStates.GroupLightState();
+	} else {
+		lightState = new v3.lightStates.LightState();
+	}
 
 	switch (command) {
 		case "off":
