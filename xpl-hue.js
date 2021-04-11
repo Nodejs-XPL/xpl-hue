@@ -324,7 +324,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 
 		if (!groupsStates[groupKey]) {
 			groupsStates[groupKey] = {
-				id: groupKey,
+				id: groupId,
 			}
 		}
 
@@ -692,7 +692,7 @@ async function processXplMessage(hue, deviceAliases, message) {
 		});
 	}
 
-	if (!Object.keys(targetKeys).length) {
+	if (!Object.keys(targetKeys).length && !Object.keys(targetGroupKeys).length) {
 		return;
 	}
 
