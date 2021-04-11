@@ -1,21 +1,19 @@
 /*jslint node: true, esversion: 6, sub: true, maxlen: 180 */
-'use strict';
 
 const Xpl = require("xpl-api");
 const commander = require('commander');
 const os = require('os');
 const debug = require('debug')('xpl-hue:cli');
 const debugDevice = require('debug')('xpl-hue:device');
-const async = require('async');
 const util = require('util');
-const Semaphore = require('semaphore');
+const Semaphore = require('semaphore-async-await').default;
 
 const Hue = require("./lib/hue");
-const HueApi = require("node-hue-api");
+const v3 = require("node-hue-api").v3
 
 const DEFAULT_HUE_USERNAME = "XPL-NodeJS";
 
-const hueSemaphore = Semaphore(1);
+const hueSemaphore = new Semaphore(1);
 
 commander.version(require("./package.json").version);
 commander.option("--host <host>", "Hostname of hue bridge");
@@ -49,155 +47,126 @@ commander.command('registerUser [username]').description("Create a user").action
 	});
 });
 
-commander.command('listLights').action(() => {
+commander.command('listLights').action(async () => {
 
-	var hue = new Hue(commander);
-	hue.getHueAddress((error, hueAddress) => {
-		if (error) {
-			return console.error(error);
-		}
+	const hue = new Hue(commander);
+	const hueAddress = await hue.getHueAddress();
 
-		var api = new HueApi.HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+	const api = await v3.api.createLocal(hueAddress).connect(hue.username); //, hue.hueTimeout, this.huePort, hue.scenePrefix);
 
-		api.lights((error, list) => {
-			if (error) {
-				console.error("ERROR=", error);
-				return;
-			}
+	const list = await api.lights.getAll();
 
-			console.log("list=", util.inspect(list, {depth: null}));
-		});
-	});
+	console.log("list=", util.inspect(list, {depth: null}));
 });
 
-commander.command('listSensors').action(() => {
+commander.command('listLightGroups').action(async () => {
 
-	var hue = new Hue(commander);
-	hue.getHueAddress((error, hueAddress) => {
-		if (error) {
-			return console.error(error);
-		}
+	const hue = new Hue(commander);
+	const hueAddress = await hue.getHueAddress();
 
-		var api = new HueApi.HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
+	const api = await v3.api.createLocal(hueAddress).connect(hue.username); //, hue.hueTimeout, this.huePort, hue.scenePrefix);
 
-		api.sensors((error, list) => {
-			if (error) {
-				console.error("ERROR=", error);
-				return;
-			}
+	const list = await api.groups.getAll();
 
-			console.log("list=", util.inspect(list, {depth: null}));
-		});
-	});
+	console.log("groups=", list.map((g) => ({id: g.id, name: g.name, lights: g.lights})));
 });
 
-commander.command('listAccessories').action(() => {
-	var hue = new Hue(commander);
-	hue.getHueAddress((error, hueAddress) => {
-		if (error) {
-			return console.error(error);
-		}
+commander.command('listSensors').action(async () => {
 
-		var api = new HueApi.HueApi(hueAddress, hue.username, hue.hueTimeout, this.huePort, hue.scenePrefix);
-		hue.listAccessories((error, list) => {
-			if (error) {
-				console.error("ERROR=", error);
-				return;
-			}
+	const hue = new Hue(commander);
+	const hueAddress = await hue.getHueAddress();
 
-			console.log("list=", util.inspect(list, {depth: null}));
-		});
-	});
+	const api = await v3.api.createLocal(hueAddress).connect(hue.username); //, hue.hueTimeout, this.huePort, hue.scenePrefix);
+
+	const list = await api.sensors.getAll();
+
+	console.log("list=", list.map((g) => ({id: g.id, name: g.name, type: g.type})));
 });
 
-commander.command('run').description("Start processing Hue").action(() => {
+
+commander.command('run').description("Start processing Hue").action(async () => {
 	console.log("Start processing hue");
 
-	var hue = new Hue(commander);
-	hue.listAccessories((error, list) => {
+	const hue = new Hue(commander);
+	const hueAddress = await hue.getHueAddress();
+
+	const api = await v3.api.createLocal(hueAddress).connect(hue.username); //, hue.hueTimeout, this.huePort, hue.scenePrefix);
+
+	if (!commander.xplSource) {
+		let hostName = os.hostname();
+		if (hostName.indexOf('.') > 0) {
+			hostName = hostName.substring(0, hostName.indexOf('.'));
+		}
+
+		commander.xplSource = "hue." + hostName;
+	}
+
+	const deviceAliases = Xpl.loadDeviceAliases(commander.deviceAliases);
+
+	debug("Device aliases=", deviceAliases);
+
+	const xpl = new Xpl(commander);
+
+	xpl.on("error", (error) => {
+		console.log("XPL error", error);
+	});
+
+	xpl.bind(async (error) => {
 		if (error) {
-			if (error.message === 'unauthorized user') {
-				console.error("The user '" + commander.username + "' is not authorized");
-				console.error("Push the bridge BUTTON, and launch : node xpl-hue.js registerUser '" + commander.username + "'");
-				process.exit(4);
-				return;
-			}
-			console.error("Hue error", error);
-			process.exit(5);
+			console.error("Can not open xpl bridge ", error);
+			process.exit(2);
 			return;
 		}
 
-		if (!commander.xplSource) {
-			var hostName = os.hostname();
-			if (hostName.indexOf('.') > 0) {
-				hostName = hostName.substring(0, hostName.indexOf('.'));
-			}
+		console.log("Xpl bind succeed ");
+		// xpl.sendXplTrig(body, callback);
 
-			commander.xplSource = "hue." + hostName;
-		}
+		const groups = await setupLightGroups(api);
 
-		var deviceAliases = Xpl.loadDeviceAliases(commander.deviceAliases);
+		syncState(xpl, api, deviceAliases, groups).catch((error) => {
+			console.error(error);
+		})
 
-		debug("Device aliases=", deviceAliases);
-
-		var xpl = new Xpl(commander);
-
-		xpl.on("error", (error) => {
-			console.log("XPL error", error);
-		});
-
-		xpl.bind((error) => {
-			if (error) {
-				console.log("Can not open xpl bridge ", error);
-				process.exit(2);
-				return;
-			}
-
-			console.log("Xpl bind succeed ");
-			// xpl.sendXplTrig(body, callback);
-
-			syncState(xpl, hue, deviceAliases);
-
-			xpl.on("xpl:xpl-cmnd", processXplMessage.bind(xpl, hue, deviceAliases));
-		});
+		xpl.on("xpl:xpl-cmnd", processXplMessage.bind(xpl, api, deviceAliases));
 	});
 });
 commander.parse(process.argv);
 
-var errorCount = 0;
+let errorCount = 0;
 
-var lightsStates = {};
-var sensorsStates = {};
+const lightsStates = {};
+const sensorsStates = {};
+const groupsStates = {};
 
-function sendLightsStates(list, xpl, deviceAliases, callback) {
+async function sendLightsStates(list, xpl, deviceAliases, groups) {
 
-	async.eachSeries(list, (light, callback) => {
+	const modifs = [];
+	list.forEach((light) => {
+//		console.log('Send light state=', light);
+
 		debugDevice("sendLightsStates", "test light=", light);
 //		console.log("sendLightsStates", "test light=", light);
-		let device = light.device;
-		let key = device.uniqueid;
+		let key = light.uniqueid;
 		if (deviceAliases) {
-			var dk = deviceAliases[key];
+			const dk = deviceAliases[key];
 			if (dk) {
 				key = dk;
 
 				if (key === "ignore") {
-					callback();
 					return;
 				}
 			}
 		}
 
-		let state = device.state;
+		let state = light.state;
 		let lightState = lightsStates[key];
 		if (!lightState) {
 			lightState = {
-				id: device.id
+				id: light.id
 			};
 			lightsStates[key] = lightState;
 		}
-
-		let modifs = [];
+//		console.log('light=', light.id, 'prev=', lightState, 'new=', state);
 
 		let status = (typeof (state.on) === "boolean") && state.on && (typeof (state.reachable) === "boolean") && state.reachable;
 		if (lightState.status !== status) {
@@ -247,6 +216,8 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				});
 			}
 		}
+
+		// http://rsmck.co.uk/hue
 		if (typeof (state.hue) === "number") {
 			if (lightState.hue !== state.hue) {
 				lightState.hue = state.hue;
@@ -280,6 +251,7 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				});
 			}
 		}
+
 		if (Array.isArray(state.xy)) {
 			const xy = state.xy.join(',');
 			if (lightState.xy !== xy) {
@@ -325,61 +297,131 @@ function sendLightsStates(list, xpl, deviceAliases, callback) {
 				});
 			}
 		}
+	});
 
-		if (!modifs.length) {
-			return callback();
+	if (!modifs.length) {
+		return;
+	}
+
+	Object.keys(groups.lightsByGroupId).forEach((groupId) => {
+		const group = groups.lightsByGroupId[groupId];
+		if (!group.length) {
+			return;
 		}
 
-		async.eachSeries(modifs, (body, callback) => {
-			//console.log("Modification detected = ", modifs);
+		let groupKey = 'group@' + groupId;
 
-			xpl.sendXplStat(body, "sensor.basic", callback);
-		}, callback);
-	}, callback);
+		if (deviceAliases) {
+			const dk = deviceAliases[groupKey];
+			if (dk) {
+				groupKey = dk;
+
+				if (groupKey === "ignore") {
+					return;
+				}
+			}
+		}
+
+		if (!groupsStates[groupKey]) {
+			groupsStates[groupKey] = {
+				id: groupKey,
+			}
+		}
+
+		const on = group.find((lightId) => {
+			const light = list.find((l) => (l.id == lightId));
+			if (!light) {
+				console.error('Can not get light with id=', lightId);
+				return;
+			}
+
+			let state = light.state;
+
+			let status = (typeof (state.on) === "boolean") && state.on && (typeof (state.reachable) === "boolean") && state.reachable;
+
+			return status;
+		});
+
+//		console.log('On of', groupKey, '=>', on, groupsStates[groupId]);
+
+		if (groupsStates[groupKey] !== on) {
+			groupsStates[groupKey] = on;
+
+			modifs.push({
+				device: groupKey,
+				type: "status",
+				current: (on) ? "enable" : "disable"
+			});
+		}
+	});
+
+	if (!modifs.length) {
+		return;
+	}
+
+	console.log('modifs=', modifs);
+
+	const ps = modifs.map((body) => (sendXplStat(xpl, body, "sensor.basic")));
+
+	await Promise.all(ps);
 }
 
-function sendSensorsStates(list, xpl, deviceAliases, callback) {
+async function sendXplStat(xpl, body, bodyName, target, source) {
+	return new Promise((resolve, reject) => {
+		xpl.sendXplStat(body, bodyName, target, source, (error) => {
+			if (error) {
+				reject(error);
+				return;
+			}
 
-	async.eachSeries(list, (sensor, callback) => {
+			resolve();
+		});
+	});
+}
+
+
+async function sendSensorsStates(list, xpl, deviceAliases) {
+
+
+	const modifs = [];
+
+	list.forEach((sensor) => {
 
 		debugDevice("sendSensorsStates", "test sensor=", sensor);
-		let device = sensor.device;
-		let key = device.uniqueid;
+		let key = sensor.uniqueid;
 		if (deviceAliases) {
-			var dk = deviceAliases[key];
+			const dk = deviceAliases[key];
 			if (dk) {
 				key = dk;
 			}
 			if (key === "ignore") {
-				callback();
 				return;
 			}
 		}
 
 		if (!key) {
-			return callback();
+			return;
 		}
 
-		let state = device.state;
-		let config = device.config;
 		let sensorState = sensorsStates[key];
 		if (!sensorState) {
 			sensorState = {
-				id: device.id
+				id: sensor.id
 			};
 			sensorsStates[key] = sensorState;
 		}
 
-		let modifs = [];
+		if (typeof (sensor.lastupdated) === "string") {
+			if (sensorState.lastupdated !== sensor.lastupdated) {
+				sensorState.lastupdated = sensor.lastupdated;
 
-		if (typeof (state.lastupdated) === "string") {
-			if (sensorState.lastupdated !== state.lastupdated) {
-				sensorState.lastupdated = state.lastupdated;
+				sensor.getStateAttributeNames().forEach((k) => {
+					let v = sensor.getStateAttributeValue(k);
 
-				for (let k in state) {
-					let v = state[k];
+//					console.log('=>', k, '=>', v);
+
 					if (typeof (v) === 'object' || v === undefined || k === "lastupdated") {
-						continue;
+						return;
 					}
 
 					sensorState[k] = v;
@@ -398,26 +440,28 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 						device: key,
 						type: k,
 						current: v,
-						units
 					};
+					if (units) {
+						d.units = units;
+					}
 
-					if (state.lastupdated) {
-						d.date = state.lastupdated;
+					if (sensor.lastupdated) {
+						d.date = sensor.lastupdated;
 					}
 
 					modifs.push(d);
-				}
+				});
 			}
 		} else {
-			for (let k in state) {
-				let v = state[k];
+			sensor.getStateAttributeNames().forEach((k) => {
+				let v = sensor.getStateAttribute(k);
 
 				if (typeof (v) === 'object') {
-					continue;
+					return;
 				}
 
 				if (sensorState[k] === v) {
-					continue;
+					return;
 				}
 
 				sensorState[k] = v;
@@ -432,18 +476,21 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 					units = '%';
 				}
 
-				modifs.push({
+				const d = {
 					device: key,
 					type: k,
 					current: v,
-					units
-				});
-			}
+				};
+				if (units) {
+					d.units = units;
+				}
+				modifs.push(d);
+			});
 		}
 
+		let config = sensor.getConfig();
 		for (let k in config) {
 			let v = config[k];
-
 
 			if (typeof (v) === 'object' || v === undefined) {
 				continue;
@@ -460,89 +507,122 @@ function sendSensorsStates(list, xpl, deviceAliases, callback) {
 				units = '%';
 			}
 
-
 			sensorState[k] = v;
 
-			modifs.push({
+			const d = {
 				device: key,
 				type: k,
 				current: v,
-				units
-			});
-		}
-
-
-		if (!modifs.length) {
-			return callback();
-		}
-
-		async.eachSeries(modifs, (body, callback) => {
-			debug("sendSensorsStates", "Send modifs", modifs);
-
-			if (!commander.verifyUpdates) {
-				xpl.sendXplStat(body, "sensor.basic", callback);
-				return;
+			};
+			if (units) {
+				d.units = units;
 			}
+			modifs.push(d);
+		}
+	});
 
-			dbClient.getLast(body.device, (error, result) => {
-				if (result.value === body.current) {
-					return callback();
-				}
+	if (!modifs.length) {
+		return;
+	}
 
-				xpl.sendXplStat(body, "sensor.basic", callback);
-			});
+	console.log('modifs=', modifs);
 
-		}, callback);
+	const ps = modifs.map(async (body) => {
 
-	}, callback);
+		if (!commander.verifyUpdates) {
+			return sendXplStat(xpl, body, "sensor.basic");
+		}
+
+		const result = await getLastFromDbClient(body.device);
+		if (result.value === body.current) {
+			return;
+		}
+
+		return sendXplStat(xpl, body, "sensor.basic");
+	});
+
+	await Promise.all(ps);
 }
 
-function syncState(xpl, hue, deviceAliases) {
-	hueSemaphore.take(() => {
-		hue.listLights((error, list, states) => {
+async function getLastFromDbClient(device) {
+	return new Promise((resolve, reject) => {
+
+		dbClient.getLast(device, (error, result) => {
 			if (error) {
-				console.error("listLights: error=", error);
-
-				errorCount++;
-				if (errorCount > 10) {
-					console.error("listLights: Two many error ! Stop process");
-					process.exit(2);
-					return;
-				}
-
-				hueSemaphore.leave();
-				setTimeout(syncState.bind(this, xpl, hue, deviceAliases), commander.hueRetryTimeout || 300);
+				reject(error);
 				return;
 			}
-			errorCount = 0;
 
-			sendLightsStates(list, xpl, deviceAliases, (error) => {
-				function callback(error) {
-					if (error) {
-						console.error("sendLightsStates: error=", error);
-					}
-
-					hueSemaphore.leave();
-					setTimeout(syncState.bind(this, xpl, hue, deviceAliases), 500);
-				}
-
-				if (error) {
-					return callback(error);
-				}
-
-				hue.listSensors((error, list, states) => {
-					if (error) {
-						return callback(error);
-					}
-
-					sendSensorsStates(list, xpl, deviceAliases, callback);
-				});
-			});
+			resolve(result);
 		});
 	});
 }
 
-function processXplMessage(hue, deviceAliases, message) {
+async function syncState(xpl, hue, deviceAliases, groups) {
+
+	for (; ;) {
+		await hueSemaphore.acquire();
+		try {
+			for (; ;) {
+//				console.log('Try to sync lights');
+				try {
+					const lights = await hue.lights.getAll();
+
+					await sendLightsStates(lights, xpl, deviceAliases, groups);
+					errorCount = 0;
+					break;
+
+				} catch (error) {
+					console.error('syncState.lights.getAll', error);
+
+					errorCount++;
+					if (errorCount > 10) {
+						console.error("listLights: Two many error ! Stop process");
+						process.exit(2);
+						return;
+					}
+
+					await promiseTimeout(commander.hueRetryTimeout || 300);
+				}
+			}
+
+			for (; ;) {
+//				console.log('Try to sync sensors');
+
+				try {
+					const sensors = await hue.sensors.getAll();
+					await sendSensorsStates(sensors, xpl, deviceAliases, groups);
+					errorCount = 0;
+					break;
+
+				} catch (error) {
+					console.error('syncState.sensors.getAll', error);
+
+					errorCount++;
+					if (errorCount > 10) {
+						console.error("listLights: Two many error ! Stop process");
+						process.exit(2);
+						return;
+					}
+
+					await promiseTimeout(commander.hueRetryTimeout || 300);
+				}
+			}
+		} finally {
+			hueSemaphore.release();
+		}
+
+		await promiseTimeout(500);
+	}
+}
+
+function promiseTimeout(delayms) {
+	return new Promise(function (resolve, reject) {
+		setTimeout(resolve, delayms);
+	});
+}
+
+async function processXplMessage(hue, deviceAliases, message) {
 
 	debug("processXplMessage", "Receive message", message);
 
@@ -551,11 +631,11 @@ function processXplMessage(hue, deviceAliases, message) {
 		return;
 	}
 
-	var body = message.body;
+	const body = message.body;
 
-	var command = body.command;
-	var device = body.device;
-	var current = body.current;
+	let command = body.command;
+	let device = body.device;
+	let current = body.current;
 
 	switch (command) {
 		// Xpl-delabarre
@@ -589,7 +669,8 @@ function processXplMessage(hue, deviceAliases, message) {
 			break;
 	}
 
-	var targetKeys = {};
+	const targetKeys = {};
+	const targetGroupKeys = {};
 	if (device === "all") {
 		for (var l in lightsStates) {
 			targetKeys[l.id] = true;
@@ -599,15 +680,14 @@ function processXplMessage(hue, deviceAliases, message) {
 			tok = tok.trim();
 			debug("processXplMessage", "Process tok=", tok);
 
-			for (var l in lightsStates) {
-				let v = lightsStates[l];
-
-				if (l !== tok) {
-					continue;
-				}
-
+			const v = lightsStates[tok];
+			if (v) {
 				targetKeys[v.id] = true;
-				break;
+			}
+
+			const g = groupsStates[tok];
+			if (g) {
+				targetGroupKeys[g.id] = true;
 			}
 		});
 	}
@@ -619,7 +699,7 @@ function processXplMessage(hue, deviceAliases, message) {
 	console.log("processXplMessage", "Receive message", message, 'command=', command, 'device=', device, "current=", current);
 
 
-	var lightState = HueApi.lightState.create();
+	const lightState = new v3.lightStates.LightState();
 
 	switch (command) {
 		case "off":
@@ -692,35 +772,80 @@ function processXplMessage(hue, deviceAliases, message) {
 			return;
 	}
 
-	hueSemaphore.take(() => {
-		async.forEachOfSeries(targetKeys, function changeLightState(item, id, callback) {
-			console.log("processXplMessage", "Set light", id, "state=", lightState);
-			hue.setLightState(id, lightState, (error) => {
-				if (error) {
-					console.error("processXplMessage", "setLightState error=", error);
+	await hueSemaphore.acquire();
+	try {
+		const ps = [];
+
+		ps.push(...Object.keys(targetKeys).map(async (id) => {
+			for (; ;) {
+				try {
+					await hue.lights.setLightState(id, lightState);
+					errorCount = 0;
+					break;
+
+				} catch (error) {
+					errorCount++;
+					if (errorCount > 10) {
+						throw error;
+					}
+
+					await promiseTimeout(commander.hueRetryTimeout || 300);
 				}
-
-				if (error && error.code == "ECONNRESET") {
-					console.error("ECONNRESET when setting lightSate id=", id, "to=", lightState);
-					setTimeout(() => {
-						changeLightState(item, id, callback);
-					}, commander.hueRetryTimeout || 300);
-					return;
-				}
-
-				callback(error);
-			});
-		}, (error) => {
-			hueSemaphore.leave();
-
-			if (error) {
-				console.error(error);
 			}
-		});
-	});
+		}));
+
+		ps.push(...Object.keys(targetGroupKeys).map(async (id) => {
+			for (; ;) {
+				try {
+					await hue.groups.setGroupState(id, lightState);
+					errorCount = 0;
+					break;
+
+				} catch (error) {
+					errorCount++;
+					if (errorCount > 10) {
+						throw error;
+					}
+
+					await promiseTimeout(commander.hueRetryTimeout || 300);
+				}
+			}
+		}));
+
+		await Promise.all(ps);
+
+	} finally {
+		hueSemaphore.release();
+	}
 }
 
-if (commander.headDump) {
-	var heapdump = require("heapdump");
-	console.log("***** HEAPDUMP enabled **************");
+async function setupLightGroups(hue) {
+
+	const list = await hue.groups.getAll();
+
+	const groupsByLightId = {};
+	const lightsByGroupId = {};
+
+	list.forEach((group) => {
+		lightsByGroupId[group.id] = group.lights;
+
+		group.lights.forEach((light) => {
+			let g = groupsByLightId[light];
+			if (!g) {
+				g = [];
+				groupsByLightId[light] = g;
+			}
+			g.push(String(group.id));
+		})
+	});
+
+
+	const ret = {
+		groupsByLightId,
+		lightsByGroupId,
+	}
+
+	console.log('MAPPING=', ret);
+
+	return ret;
 }

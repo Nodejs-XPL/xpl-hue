@@ -9,8 +9,9 @@
     "async": "~1.5",
     "commander": "~2.3",
     "debug": "^4.1.1",
-    "node-hue-api": "~2.4",
+    "node-hue-api": "^4.0.10",
     "semaphore": "^1.0.5",
+    "semaphore-async-await": "^1.5.1",
     "xpl-api": "^2.1.2"
   },
   "keywords": [
