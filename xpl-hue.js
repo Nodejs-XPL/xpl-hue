@@ -344,8 +344,8 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 
 //		console.log('On of', groupKey, '=>', on, groupsStates[groupId]);
 
-		if (groupsStates[groupKey] !== on) {
-			groupsStates[groupKey] = on;
+		if (groupsStates[groupKey].status !== on) {
+			groupsStates[groupKey].status = on;
 
 			modifs.push({
 				device: groupKey,
