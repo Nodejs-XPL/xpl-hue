@@ -183,7 +183,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 			if (lightState.on !== state.on) {
 				lightState.on = state.on;
 
-				console.log('change state=', state, 'key=', key);
+//				console.log('change state=', state, 'key=', key);
 
 				modifs.push({
 					device: key,
@@ -212,7 +212,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 				modifs.push({
 					device: key,
 					type: "brightness",
-					current: state.bri / 254 * 100
+					current: Math.min(state.bri / 254 * 100, 100),
 				});
 			}
 		}
@@ -225,7 +225,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 				modifs.push({
 					device: key,
 					type: "hue",
-					current: state.hue / 65535 * 360
+					current: Math.min(state.hue / 65535 * 360, 360),
 				});
 			}
 		}
@@ -236,7 +236,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 				modifs.push({
 					device: key,
 					type: "saturation",
-					current: state.sat / 254 * 100
+					current: Math.min(100, state.sat / 254 * 100),
 				});
 			}
 		}
@@ -331,7 +331,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 		const on = group.find((lightId) => {
 			const light = list.find((l) => (l.id === lightId));
 			if (!light) {
-				console.error('Can not get light with id=', lightId);
+				console.error('For group '+group.name+', can not get light with id=', lightId);
 				return;
 			}
 
@@ -722,7 +722,17 @@ async function processXplMessage(hue, deviceAliases, message) {
 				brightness = parseInt(current, 10);
 			}
 			debug("processXplMessage", "Request brightness: ", brightness, "zones=", targetKeys);
-			lightState.bri(brightness);
+			lightState.brightness(brightness);
+			break;
+		}
+
+		case "saturation": {
+			let saturation = undefined;
+			if (typeof (current) === "string") {
+				saturation = parseInt(current, 10);
+			}
+			debug("processXplMessage", "Request saturation: ", saturation, "zones=", targetKeys);
+			lightState.saturation(saturation);
 			break;
 		}
 
