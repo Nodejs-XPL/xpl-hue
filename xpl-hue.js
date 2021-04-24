@@ -329,7 +329,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 		}
 
 		const on = group.find((lightId) => {
-			const light = list.find((l) => (l.id == lightId));
+			const light = list.find((l) => (l.id === lightId));
 			if (!light) {
 				console.error('Can not get light with id=', lightId);
 				return;
@@ -748,7 +748,7 @@ async function processXplMessage(hue, deviceAliases, message) {
 
 			} else {
 				if (typeof (body.white) === "string") {
-					white = parseInt((body.white, 10);
+					white = parseInt(body.white, 10);
 				}
 
 				if (typeof (body.colorTemp) === "string") {
