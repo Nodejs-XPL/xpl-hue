@@ -700,7 +700,7 @@ async function processXplMessage(hue, deviceAliases, message) {
 
 	let lightState;
 	if (!Object.keys(targetKeys).length) {
-		lightState=new v3.lightStates.GroupLightState();
+		lightState = new v3.lightStates.GroupLightState();
 	} else {
 		lightState = new v3.lightStates.LightState();
 	}
@@ -726,35 +726,63 @@ async function processXplMessage(hue, deviceAliases, message) {
 			break;
 		}
 
+		case "temperature": {
+			let temperature = 2200;
+			if (typeof (current) === "string") {
+				temperature = parseInt(current, 10);
+				temperature = isNaN(temperature) ? 500 : temperature;
+			}
+			debug("processXplMessage", "Request temperature: ", temperature, "zones=", targetKeys);
+			lightState.ct(Math.min(500, Math.max(1000000 / temperature, 153)));
+			break;
+		}
+
 		case "white": {
 			let white = undefined;
-			if (typeof (current) === "string") {
-				white = parseInt(current, 10);
+			let colorTemp = current;
+
+			if (typeof (current) === 'string') {
+				const vs = current.split(',');
+				white = parseInt(vs[0], 10);
+				colorTemp = parseInt(vs[1], 10);
+
+			} else {
+				if (typeof (body.white) === "string") {
+					white = parseInt((body.white, 10);
+				}
+
+				if (typeof (body.colorTemp) === "string") {
+					colorTemp = parseInt(body.colorTemp, 10);
+				}
 			}
 
-			let colorTemp = 500;
-			if (typeof (body.colorTemp) === "string") {
-				colorTemp = parseInt(body.colorTemp, 10);
-				colorTemp = isNaN(colorTemp) ? 500 : Math.min(Math.max(colorTemp, 153), 500);
-			}
+			colorTemp = isNaN(colorTemp) ? 500 : colorTemp;
 
 			debug("processXplMessage", "Request white=", white, "colorTemp=", colorTemp, "lights=", targetKeys);
-			lightState.white(colorTemp, white);
+			lightState.white(Math.min(Math.max(1000000 / colorTemp, 153), 500), white);
 			break;
 		}
 
 		case "hsb": {
 			let hue = undefined;
-			if (typeof (body.hue) === "string") {
-				hue = parseInt(body.hue, 10);
-			}
 			let saturation = undefined;
-			if (typeof (body.saturation) === "string") {
-				saturation = parseInt(body.saturation, 10);
-			}
 			let brightness = undefined;
-			if (typeof (body.brightness) === "string") {
-				brightness = parseInt(body.brightness, 10);
+			if (typeof (current) === 'string') {
+				const vs = current.split(',');
+				hue = parseInt(vs[0], 10);
+				saturation = parseInt(vs[1], 10);
+				brightness = parseInt(vs[2], 10);
+
+			} else {
+				if (typeof (body.hue) === "string") {
+					hue = parseInt(body.hue, 10);
+				}
+				if (typeof (body.saturation) === "string") {
+					saturation = parseInt(body.saturation, 10);
+				}
+				if (typeof (body.brightness) === "string") {
+					brightness = parseInt(body.brightness, 10);
+				}
 			}
 			debug("processXplMessage", "Request hsb: hue=", hue, "saturation=", saturation, "brightness=", brightness, "lights=", targetKeys);
 			lightState.hsb(hue, saturation, brightness);
