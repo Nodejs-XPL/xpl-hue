@@ -84,6 +84,8 @@ commander.command('listSensors').action(async () => {
 });
 
 
+const reachableDevices = {};
+
 commander.command('run').description("Start processing Hue").action(async () => {
 	console.log("Start processing hue");
 
@@ -129,7 +131,33 @@ commander.command('run').description("Start processing Hue").action(async () => 
 
 		xpl.on("xpl:xpl-cmnd", processXplMessage.bind(xpl, api, deviceAliases));
 	});
+
+	process.on('SIGINT', function () {
+		console.log('disconnecting...');
+
+		console.log('Shutdown XPL units');
+
+		for (let key in reachableDevices) {
+			if (!reachableDevices[key]) {
+				continue;
+			}
+			reachableDevices[key] = false;
+
+			console.log('Shutdown', key);
+			xpl.sendXplTrig({
+				device: key,
+				type: "reachable",
+				current: false,
+			});
+		}
+		setTimeout(() => {
+			process.exit();
+		}, 3000);
+	});
 });
+
+})
+;
 commander.parse(process.argv);
 
 let errorCount = 0;
@@ -203,6 +231,8 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 					current: (state.reachable) ? "enable" : "disable"
 				});
 			}
+
+			reachableDevices[key] = state.reachable;
 		}
 
 		if (typeof (state.bri) === "number") {
@@ -331,7 +361,7 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 		const on = group.find((lightId) => {
 			const light = list.find((l) => (l.id === lightId));
 			if (!light) {
-				console.error('For group '+group.name+', can not get light with id=', lightId);
+				console.error('For group ' + group.name + ', can not get light with id=', lightId);
 				return;
 			}
 
@@ -733,6 +763,16 @@ async function processXplMessage(hue, deviceAliases, message) {
 			}
 			debug("processXplMessage", "Request saturation: ", saturation, "zones=", targetKeys);
 			lightState.saturation(saturation);
+			break;
+		}
+
+		case "hue": {
+			let hue = undefined;
+			if (typeof (current) === "string") {
+				hue = parseInt(current, 10);
+			}
+			debug("processXplMessage", "Request hue: ", hue, "zones=", targetKeys);
+			lightState.hue(hue);
 			break;
 		}
 
