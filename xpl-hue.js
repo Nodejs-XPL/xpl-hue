@@ -156,8 +156,6 @@ commander.command('run').description("Start processing Hue").action(async () => 
 	});
 });
 
-})
-;
 commander.parse(process.argv);
 
 let errorCount = 0;
