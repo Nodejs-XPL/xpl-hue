@@ -233,14 +233,14 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 			reachableDevices[key] = state.reachable;
 		}
 
-		if (typeof (state.brightness) === "number") {
-			if (lightState.brightness !== state.brightness) {
-				lightState.brightness = state.brightness;
+		if (typeof (state.bri) === "number") {
+			if (lightState.bri !== state.bri) {
+				lightState.bri = state.bri;
 
 				modifs.push({
 					device: key,
 					type: "brightness",
-					current: state.brightness,
+					current: Math.min(state.bri / 254 * 100, 100),
 				});
 			}
 		}
@@ -257,14 +257,14 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 				});
 			}
 		}
-		if (typeof (state.saturation) === "number") {
-			if (lightState.saturation !== state.saturation) {
-				lightState.saturation = state.saturation;
+		if (typeof (state.sat) === "number") {
+			if (lightState.sat !== state.sat) {
+				lightState.sat = state.sat;
 
 				modifs.push({
 					device: key,
 					type: "saturation",
-					current: state.saturation,
+					current: Math.min(100, state.sat / 254 * 100),
 				});
 			}
 		}
@@ -382,10 +382,13 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 				type,
 				current: (newCurrent) ? "enable" : "disable"
 			});
+			if (type === 'reachable') {
+				reachableDevices[type] = newCurrent;
+			}
 		});
 
 
-		['brightness', 'hue', 'saturation'].forEach((type) => {
+		['bri', 'hue', 'sat'].forEach((type) => {
 			let newCurrent = 0;
 			let count = 0;
 
@@ -415,7 +418,15 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 			groupsStates[groupKey][type] = newCurrent;
 
 			if (type === 'hue') {
-				newCurrent = Math.min(newCurrent / 65535 * 360, 360)
+				newCurrent = Math.min(newCurrent / 65535 * 360, 360);
+
+			} else if (type === 'bri') {
+				type = 'brightness';
+				newCurrent = Math.min(newCurrent / 254 * 100, 100);
+				
+			} else if (type === 'sat') {
+				type = 'saturation';
+				newCurrent = Math.min(newCurrent / 254 * 100, 100);
 			}
 
 			modifs.push({
