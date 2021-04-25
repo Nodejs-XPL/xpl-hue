@@ -235,14 +235,14 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 			reachableDevices[key] = state.reachable;
 		}
 
-		if (typeof (state.bri) === "number") {
-			if (lightState.bri !== state.bri) {
-				lightState.bri = state.bri;
+		if (typeof (state.brightness) === "number") {
+			if (lightState.brightness !== state.brightness) {
+				lightState.brightness = state.brightness;
 
 				modifs.push({
 					device: key,
 					type: "brightness",
-					current: Math.min(state.bri / 254 * 100, 100),
+					current: state.brightness,
 				});
 			}
 		}
@@ -259,14 +259,14 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 				});
 			}
 		}
-		if (typeof (state.sat) === "number") {
-			if (lightState.sat !== state.sat) {
-				lightState.sat = state.sat;
+		if (typeof (state.saturation) === "number") {
+			if (lightState.saturation !== state.saturation) {
+				lightState.saturation = state.saturation;
 
 				modifs.push({
 					device: key,
 					type: "saturation",
-					current: Math.min(100, state.sat / 254 * 100),
+					current: state.saturation,
 				});
 			}
 		}
@@ -358,31 +358,74 @@ async function sendLightsStates(list, xpl, deviceAliases, groups) {
 			}
 		}
 
-		const on = group.find((lightId) => {
-			const light = list.find((l) => (l.id === lightId));
-			if (!light) {
-				console.error('For group ' + group.name + ', can not get light with id=', lightId);
+		['status', 'reachable'].forEach((type) => {
+			const newCurrent = group.find((lightId) => {
+				const light = list.find((l) => (l.id === lightId));
+				if (!light) {
+//					console.error('For group ' + group.name + ', can not get light with id=', lightId);
+					return;
+				}
+
+				let state = light[type];
+
+				let status = (typeof (state[type]) === "boolean") && state[type];
+
+				return status;
+			});
+
+			if (groupsStates[groupKey][type] === newCurrent) {
 				return;
 			}
 
-			let state = light.state;
-
-			let status = (typeof (state.on) === "boolean") && state.on && (typeof (state.reachable) === "boolean") && state.reachable;
-
-			return status;
-		});
-
-//		console.log('On of', groupKey, '=>', on, groupsStates[groupId]);
-
-		if (groupsStates[groupKey].status !== on) {
-			groupsStates[groupKey].status = on;
+			groupsStates[groupKey][type] = newCurrent;
 
 			modifs.push({
 				device: groupKey,
-				type: "status",
-				current: (on) ? "enable" : "disable"
+				type,
+				current: (newCurrent) ? "enable" : "disable"
 			});
-		}
+		});
+
+
+		['brightness', 'hue', 'saturation'].forEach((type) => {
+			let newCurrent = 0;
+			let count = 0;
+
+			group.forEach((lightId) => {
+				const light = list.forEach((l) => (l.id === lightId));
+				if (!light) {
+//					console.error('For group ' + group.name + ', can not get light with id=', lightId);
+					return;
+				}
+
+				let state = light[type];
+
+				if (typeof (state[type]) === "number" && state.reachable) {
+					newCurrent = state[type];
+					count++;
+				}
+			});
+
+			if (count) {
+				newCurrent /= count;
+			}
+
+			if (groupsStates[groupKey][type] === newCurrent || !count) {
+				return;
+			}
+
+			groupsStates[groupKey][type] = newCurrent;
+
+			if (type === 'hue') {
+				newCurrent = Math.min(newCurrent / 65535 * 360, 360)
+			}
+
+			modifs.push({
+				device: groupKey,
+				type,
+				current: newCurrent,
+			});
+		});
 	});
 
 	if (!modifs.length) {
