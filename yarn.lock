@@ -2,10 +2,17 @@
 # yarn lockfile v1
 
 
-async@^1.5.2, async@~1.5:
+async@^1.5.2:
   version "1.5.2"
   resolved "https://registry.yarnpkg.com/async/-/async-1.5.2.tgz#ec6a61ae56480c0c3cb241c95618e20892f9672a"
   integrity sha1-7GphrlZIDAw8skHJVhjiCJL5Zyo=
+
+async@~2.6:
+  version "2.6.4"
+  resolved "https://registry.yarnpkg.com/async/-/async-2.6.4.tgz#706b7ff6084664cd7eae713f6f965433b5504221"
+  integrity sha512-mzo5dfJYwAn29PeiJ0zvwTo04zj8HDJj0Mn8TD7sno7q12prdbnasKJHhkm2c1LgrhlJ0teaea8860oxi51mGA==
+  dependencies:
+    lodash "^4.17.14"
 
 axios@^0.21.1:
   version "0.21.1"
@@ -47,6 +54,11 @@ get-ssl-certificate@^2.3.3:
   version "2.3.3"
   resolved "https://registry.yarnpkg.com/get-ssl-certificate/-/get-ssl-certificate-2.3.3.tgz#c8a43da1c77969b2a1dabe8f8356a7d60cf0c4b5"
   integrity sha512-aKYXS1S5+2IYw4W5+lKC/M+lvaNYPe0PhnQ144NWARcBg35H3ZvyVZ6y0LNGtiAxggFBHeO7LaVGO4bgHK4g1Q==
+
+lodash@^4.17.14:
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
+  integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
 
 ms@2.0.0:
   version "2.0.0"

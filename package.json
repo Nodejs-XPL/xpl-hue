@@ -6,7 +6,7 @@
     "xpl-hue": "./bin/xpl-hue"
   },
   "dependencies": {
-    "async": "~1.5",
+    "async": "~2.6",
     "commander": "~2.3",
     "debug": "^4.1.1",
     "node-hue-api": "^4.0.10",
